@@ -41,29 +41,19 @@ describe('buildAnalysisContext', () => {
     expect(c.pickInRound).toBe(10)
   })
 
-  it('expands the club and carries the numbers off the sheet', () => {
-    const c = buildAnalysisContext(s, taken, 20)
-    expect(c.team).toBe('Detroit Lions')
-    expect(c.positionRank).toBe(4)
-    expect(c.tier).toBe(2)
-    expect(c.risk).toBe(3.1)
-    expect(c.upside).toBe(9.4)
-    expect(c.badges).toEqual(['myGuy'])
+  it('expands the club for the voice', () => {
+    expect(buildAnalysisContext(s, taken, 20).team).toBe('Detroit Lions')
   })
 
-  it('names the next man up at the position', () => {
-    expect(buildAnalysisContext(s, taken, 20).nextBestAtPosition).toBe('Next Back (RB5)')
-  })
-
-  it('counts what is left of his tier', () => {
+  it('keeps what the room can already see on the board', () => {
     const c = buildAnalysisContext(s, taken, 20)
-    expect(c.tierTotal).toBe(3)
-    expect(c.tierRemaining).toBe(2)
+    // Round 2 snakes back, so pick 20 belongs to slot 1.
+    expect(c.managerName).toBe('Team 1')
+    expect(Array.isArray(c.managerStillNeeds)).toBe(true)
   })
 
   it('leaves the drafted player out of his own manager history', () => {
-    const c = buildAnalysisContext(s, taken, 20)
-    expect(c.managerPositionsSoFar).not.toContain('RB')
+    expect(buildAnalysisContext(s, taken, 20).managerPositionsSoFar).not.toContain('RB')
   })
 
   it('copes with a player who has no ADP', () => {
@@ -71,16 +61,60 @@ describe('buildAnalysisContext', () => {
     const c = buildAnalysisContext(session([noAdp]), noAdp, 145)
     expect(c.adpOverall).toBeNull()
     expect(c.adpDelta).toBeNull()
-    expect(c.tierRemaining).toBeNull()
+  })
+})
+
+describe('nothing private reaches the model', () => {
+  // The take is shown on the room display, so the owner's own draft prep — the
+  // sheet's ranks and tiers, its risk and upside scores, and the badges marking
+  // his guys — must never be in the payload.
+  const secretive = mk('RB', 4, {
+    name: 'Bijan Robinson', tier: 2, risk: 3.1, upside: 9.4,
+    badges: ['myGuy', 'sleeper'], status: 'drafted', draftedAtPick: 20,
+  })
+  const s2 = session([secretive, mk('RB', 5, { name: 'Next Back' })])
+  const context = buildAnalysisContext(s2, secretive, 20)
+  const payload = JSON.stringify(context)
+
+  it('sends no rank, tier, risk, upside or badges', () => {
+    for (const banned of ['positionRank', 'tier', 'risk', 'upside', 'badges', 'nextBest']) {
+      expect(payload, `"${banned}" must not be sent`).not.toContain(banned)
+    }
+  })
+
+  it('does not leak the values themselves, even unlabelled', () => {
+    expect(payload).not.toContain('myGuy')
+    expect(payload).not.toContain('sleeper')
+    expect(payload).not.toContain('9.4')
+    expect(payload).not.toContain('3.1')
+    // Rank 4 must not appear as a bare field value anywhere.
+    expect(Object.values(context)).not.toContain(4)
+  })
+
+  it('still sends what is public: the player, his club, and the market', () => {
+    expect(context.playerName).toBe('Bijan Robinson')
+    expect(context.team).toBe('Detroit Lions')
+    expect(context.adpOverall).toBe(20)
+    expect(context.overallPick).toBe(20)
   })
 })
 
 describe('the prompt', () => {
-  it('forbids inventing anything the sheet does not contain', () => {
-    // The model has no access to this season, and would otherwise fill the gap.
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/must not imply/i)
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Never invent/i)
+  it('forbids inventing current-season specifics', () => {
+    // It has no access to this season and would otherwise fill the gap.
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/out of date/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never invent/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never quote a statistic/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/two sentences at most/i)
+  })
+
+  it('forbids referring to rankings or tiers even in passing', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Never mention a player ranking, a tier/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/my guy/i)
+  })
+
+  it('invites club and role context, which is the point of the change', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/his role, the offence around him/i)
   })
 
   it('hands over the facts as data', () => {

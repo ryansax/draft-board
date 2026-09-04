@@ -62,7 +62,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
               checked={settings.pickAnalysis}
               onChange={(v) => setSettings({ pickAnalysis: v })}
               disabled={!settings.funMode}
-              hint="After the pick is announced, Claude gives a verdict and a sentence, read out and shown on the card. It reasons only from the cheat sheet and the board, and is told not to invent news or statistics. Needs the Anthropic key below, and costs one call per pick."
+              hint="After the pick is announced, Claude gives a verdict and a sentence, read out and shown on the card: the value, the fit, and a little context on the player and his club. Your rankings, tiers and badges are never sent, because the take goes on a screen the whole room can see. Needs the Anthropic key below, and costs about a call per pick."
             />
             <Field
               label="ElevenLabs API key (optional)"

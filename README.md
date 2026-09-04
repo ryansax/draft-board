@@ -285,12 +285,18 @@ With **Analyst take** on (Settings, under fun mode), Claude adds a one-line reac
 announcement: a verdict chip — Steal, Value, Solid, Fair or Reach — and a sentence, read out
 and shown under the card.
 
-It reasons **only from the sheet and the board**: the player's rank, tier, ADP against where
-he actually went, risk and upside, the badges, how much of his tier is left, who the next best
-at the position is, and what that manager still needs to start. The system prompt tells it
-plainly that it has no access to this season's news, statistics or injuries and must not imply
-otherwise — without that it will happily invent a storyline, because a draft is exactly the
-kind of context that invites one.
+**Your own draft prep never leaves the browser.** The take is displayed on a screen your whole
+league is watching, so the cheat sheet's ranks and tiers, its risk and upside scores, and the
+badges marking your guys are all kept out of the request. What is sent is either public — the
+player, his club, and ADP as market consensus — or already visible on the board to everyone:
+who picked, when, and what they have taken so far. A test asserts the payload contains none of
+the private fields, so this cannot quietly regress.
+
+The take covers the value (did he fall, or did someone reach), how he fits what that manager
+has built, and context on the player and his club. That last part draws on the model's own
+football knowledge, which is **bounded by its training data** — so the prompt forbids quoting
+statistics, asserting recent developments as current fact, or inventing an injury or a trade,
+and tells it to speak in general terms where its knowledge might be stale.
 
 Uses `claude-opus-5` at low effort with a structured output, requested the moment the sting
 starts so it is normally ready before the card lands. Practical guarantees:
