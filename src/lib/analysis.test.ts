@@ -4,6 +4,7 @@ import {
   buildAnalysisContext,
   buildAnalysisPrompt,
   coerceAnalysis,
+  marketValueFor,
 } from './analysis'
 import { DEFAULT_ROSTER, defaultManagers, type Player, type Position, type Session } from '../types'
 
@@ -32,10 +33,10 @@ describe('buildAnalysisContext', () => {
     mk('WR', 1, { name: 'Some Receiver', status: 'drafted', draftedAtPick: 10 }),
   ])
 
-  it('reports where the pick landed relative to ADP', () => {
+  it('describes the market in words, never a figure', () => {
     const c = buildAnalysisContext(s, taken, 20)
-    // ADP said pick 12; he went at 20, so he lasted 8 picks longer.
-    expect(c.adpDelta).toBe(8)
+    // ADP said pick 12; he went at 20 — under a round later, in a 10-team league.
+    expect(c.marketValue).toBe('later than the market usually takes him')
     expect(c.overallPick).toBe(20)
     expect(c.round).toBe(2)
     expect(c.pickInRound).toBe(10)
@@ -59,8 +60,7 @@ describe('buildAnalysisContext', () => {
   it('copes with a player who has no ADP', () => {
     const noAdp = mk('K', 1, { adpOverall: null, tier: null, risk: null, upside: null })
     const c = buildAnalysisContext(session([noAdp]), noAdp, 145)
-    expect(c.adpOverall).toBeNull()
-    expect(c.adpDelta).toBeNull()
+    expect(c.marketValue).toBe('no real market for him')
   })
 })
 
@@ -91,11 +91,18 @@ describe('nothing private reaches the model', () => {
     expect(Object.values(context)).not.toContain(4)
   })
 
-  it('still sends what is public: the player, his club, and the market', () => {
+  it('still sends what is public: the player, his club, and the market in words', () => {
     expect(context.playerName).toBe('Bijan Robinson')
     expect(context.team).toBe('Detroit Lions')
-    expect(context.adpOverall).toBe(20)
+    expect(context.marketValue).toBe('about where the market takes him')
     expect(context.overallPick).toBe(20)
+  })
+
+  it('sends no ADP figure the model could read out', () => {
+    expect(payload).not.toContain('adpOverall')
+    expect(payload).not.toContain('adpDelta')
+    // The sheet's ADP for this player is 20; it must not appear as a value.
+    expect(JSON.stringify(context.marketValue)).not.toMatch(/\d/)
   })
 })
 
@@ -117,15 +124,28 @@ describe('the prompt', () => {
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/his role, the offence around him/i)
   })
 
+  it('stops the value being the opening line every time', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Do not open with the value every time/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never invent one/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/no pick counts/i)
+  })
+
+  it('lets it rib the players, reputation only', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/rib the players/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/long-standing reputation/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never assert a current or recent injury/i)
+  })
+
   it('asks for humour occasionally rather than every time', () => {
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/one pick in three/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/mostly play it straight/i)
   })
 
   it('keeps the ribbing aimed at the pick, not the person', () => {
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Tease the pick, not the person/i)
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never comment on anyone's character/i)
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never escalate a crude team name/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Tease the pick and the roster, not the manager as a person/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never anything personal or cruel/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never their character, appearance or intelligence/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/do not escalate a crude team name/i)
   })
 
   it('hands over the facts as data', () => {
@@ -156,5 +176,45 @@ describe('coerceAnalysis', () => {
     expect(coerceAnalysis(null)).toBeNull()
     expect(coerceAnalysis('nope')).toBeNull()
     expect(coerceAnalysis({})).toBeNull()
+  })
+})
+
+describe('marketValueFor', () => {
+  const TEN = 10
+
+  it('reads a long fall as a bargain and a long reach as a reach', () => {
+    // ADP 12, taken at 40 — nearly three rounds later.
+    expect(marketValueFor(12, 40, TEN)).toBe('a long way later than the market usually takes him')
+    // ADP 120, taken at 13 — the "107 spots early" case that started this.
+    expect(marketValueFor(120, 13, TEN)).toBe(
+      'a long way ahead of where the market usually takes him',
+    )
+  })
+
+  it('treats half a round either side as about right', () => {
+    expect(marketValueFor(20, 20, TEN)).toBe('about where the market takes him')
+    expect(marketValueFor(20, 24, TEN)).toBe('about where the market takes him')
+    expect(marketValueFor(20, 16, TEN)).toBe('about where the market takes him')
+  })
+
+  it('separates a modest fall from a modest reach', () => {
+    expect(marketValueFor(20, 27, TEN)).toBe('later than the market usually takes him')
+    expect(marketValueFor(20, 13, TEN)).toBe('earlier than the market usually takes him')
+  })
+
+  it('says so plainly when there is no ADP at all', () => {
+    expect(marketValueFor(null, 140, TEN)).toBe('no real market for him')
+  })
+
+  it('scales with league size, so a round means a round', () => {
+    // Eight picks is more than a round in an 8-team league, less in a 14.
+    expect(marketValueFor(10, 22, 8)).toBe('a long way later than the market usually takes him')
+    expect(marketValueFor(10, 22, 14)).toBe('later than the market usually takes him')
+  })
+
+  it('never returns anything with a digit in it', () => {
+    for (const pick of [1, 13, 40, 120, 200]) {
+      expect(marketValueFor(50, pick, TEN)).not.toMatch(/\d/)
+    }
   })
 })

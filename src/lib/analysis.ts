@@ -13,6 +13,42 @@ import { managerRosters, roundForPick, slotForPick, unmetNeeds } from './insight
  */
 
 export const VERDICTS = ['Steal', 'Value', 'Solid', 'Fair', 'Reach'] as const
+
+/**
+ * How the pick sat against the market, in words rather than picks.
+ *
+ * The model used to get the exact ADP and the exact gap, and it led with them
+ * every time — "taken 107 spots before his ADP" both reads like a spreadsheet and
+ * puts a number from the owner's sheet on a shared screen. It cannot quote a
+ * figure it was never given.
+ */
+export type MarketValue =
+  | 'no real market for him'
+  | 'a long way later than the market usually takes him'
+  | 'later than the market usually takes him'
+  | 'about where the market takes him'
+  | 'earlier than the market usually takes him'
+  | 'a long way ahead of where the market usually takes him'
+
+/** Rounds either side of ADP that still counts as "about right". */
+const ABOUT_RIGHT_ROUNDS = 0.5
+/** Beyond this many rounds it is worth remarking on. */
+const NOTABLE_ROUNDS = 1.5
+
+export function marketValueFor(
+  adpOverall: number | null,
+  overallPick: number,
+  leagueSize: number,
+): MarketValue {
+  if (adpOverall === null) return 'no real market for him'
+  // Positive means he lasted longer than the market expected.
+  const rounds = (overallPick - adpOverall) / Math.max(1, leagueSize)
+  if (rounds >= NOTABLE_ROUNDS) return 'a long way later than the market usually takes him'
+  if (rounds >= ABOUT_RIGHT_ROUNDS) return 'later than the market usually takes him'
+  if (rounds > -ABOUT_RIGHT_ROUNDS) return 'about where the market takes him'
+  if (rounds > -NOTABLE_ROUNDS) return 'earlier than the market usually takes him'
+  return 'a long way ahead of where the market usually takes him'
+}
 export type Verdict = (typeof VERDICTS)[number]
 
 export interface PickAnalysis {
@@ -29,10 +65,8 @@ export interface AnalysisContext {
   position: string
   /** The club he plays for, spelled out. */
   team: string
-  /** Market consensus, not the owner's opinion: an overall pick number. */
-  adpOverall: number | null
-  /** Picks between ADP and where he actually went. Positive means he fell. */
-  adpDelta: number | null
+  /** Where this landed against the market, in words. No figure is sent. */
+  marketValue: MarketValue
   overallPick: number
   round: number
   pickInRound: number
@@ -55,8 +89,7 @@ export function buildAnalysisContext(
     playerName: player.name,
     position: player.position,
     team: teamFullName(player.team),
-    adpOverall: player.adpOverall,
-    adpDelta: player.adpOverall === null ? null : overallPick - player.adpOverall,
+    marketValue: marketValueFor(player.adpOverall, overallPick, session.leagueSize),
     overallPick,
     round,
     pickInRound: overallPick - (round - 1) * session.leagueSize,
@@ -72,22 +105,22 @@ Length: two sentences at most. Aim for one. This is heard, not read, so make it 
 
 What you are given:
 - The player, his position and his NFL club.
-- ADP as an overall pick number, and "adpDelta" — how many picks past that ADP he actually went. Positive means he lasted longer than the market expected; negative means the manager reached for him.
+- "marketValue": roughly where this pick sat against where the market usually takes him, in words. You are deliberately not given ADP as a number, and you must never invent one — no pick counts, no "X spots early", no rankings of any kind.
 - Which manager picked, where in the draft, what they had already taken, and what they still need to start.
 
-What to talk about:
-- The value: did he fall, or did someone jump early for him?
-- How he fits what that manager has already built. A fourth running back and no quarterback is worth noticing.
-- Context about the player and his club — his role, the offence around him, what makes him interesting.
+Vary what you talk about. Do not open with the value every time — it should be your angle on maybe half the picks, and only when it is actually interesting. Other angles, at least as good:
+- The player himself: his role, the offence around him, what he is known for, his reputation.
+- How he fits what that manager has built. A fourth running back and no quarterback is worth noticing.
+- Where the draft is: a run at a position, the last of a good group going, the endgame kicker.
 
-Tone. Mostly play it straight and useful. But roughly one pick in three, have some fun: a pun, a dry aside, a bit of ribbing about a reach or a lopsided roster. Use the overall pick number as your dial — when it divides by three, lean into the joke; otherwise keep it mostly straight. Team names in this league are often silly, and you are welcome to play with them.
+Tone. Mostly play it straight and useful. Roughly one pick in three, have some fun: a pun, a dry aside, a bit of ribbing. Use the overall pick number as your dial — when it divides by three, lean into the joke; otherwise keep it mostly straight.
 
-Keep the ribbing warm. Tease the pick, not the person: their roster construction, their reach, their team name are all fair game. Never comment on anyone's character, appearance or intelligence, never swear, and never escalate a crude team name — say it if you must, but do not build on it. If a joke would need something you do not actually know, drop the joke and be useful instead.
+You may rib the players as well as the managers. A player with a long-standing reputation — durable or not, boom-or-bust, a slow starter, a famous vulture, endlessly hyped — is fair game, as is a silly team name. Keep it to what a fan would say about a player, never anything personal or cruel about them as a human being. Tease the pick and the roster, not the manager as a person: never their character, appearance or intelligence. No swearing, and do not escalate a crude team name — say it if you must, but do not build on it.
 
 Hard rules:
-- You are working from training data that may be out of date, and you have no access to this season's news, statistics, depth charts or injury reports. Never state a recent development as current fact, never quote a statistic, and never invent an injury, a trade or a coaching change. If your knowledge of his situation might be stale, speak in general terms instead of asserting specifics.
-- Never mention a player ranking, a tier, a risk or upside score, or any notion of a "sheet", "board ranking", "my guy" or a personal list. You have not been given any of that and must not imply you have. The only ordering you may reference is ADP.
-- Speak plainly, like a person, not a spreadsheet. Do not read the numbers back; use them to make a point.
+- You are working from training data that may be out of date, and you have no access to this season's news, statistics, depth charts or injury reports. You may refer to a player's long-standing reputation — that he has struggled to stay on the field over his career, say — but never assert a current or recent injury, trade, suspension or coaching change, and never quote a statistic. If you are not sure something still holds, say it as reputation rather than as fact, or pick a different angle.
+- Never mention a player ranking, a tier, a risk or upside score, an ADP figure, or any notion of a "sheet", "board ranking", "my guy" or a personal list. You have not been given any of that and must not imply you have.
+- Speak plainly, like a person, not a spreadsheet. Do not read the inputs back; use them to make a point.
 - No emoji, no hashtags, no direct address to the manager.
 
 Pick a verdict that matches the value: Steal, Value, Solid, Fair or Reach.`
