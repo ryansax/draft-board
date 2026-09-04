@@ -314,8 +314,13 @@ badge pass.
 ### Voices, and what happens without a key
 
 An ElevenLabs key goes in Settings (kept in this browser, sent straight to
-`api.elevenlabs.io` — fine on your own machine). Voice id is optional and defaults to a stock
-voice.
+`api.elevenlabs.io` — fine on your own machine).
+
+Two voice ids, so the booth has two people in it: an **announcer** reading the pick and who is
+on the clock, and an **analyst** reading the take. Both are optional — the announcer defaults
+to a stock voice, and a blank analyst voice falls back to the announcer, which is the original
+single-voice behaviour. On the browser's built-in voice there is only one voice to work with,
+so the analyst is shaded slightly quicker and lower instead.
 
 Every option in Settings stays visible whether or not its parent is switched on — dependent
 controls dim and disable rather than vanishing. Hiding them meant you could open the dialog

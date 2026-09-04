@@ -131,12 +131,16 @@ export function clipFromAudio(
 export function speakWithBrowser(
   text: string,
   onBoundaryCharIndex: (charIndex: number) => void,
+  tuning: { rate?: number; pitch?: number } = {},
 ): { done: Promise<void>; stop: () => void } {
   if (typeof speechSynthesis === 'undefined') {
     return { done: Promise.resolve(), stop: () => {} }
   }
   const utterance = new SpeechSynthesisUtterance(text)
-  utterance.rate = 0.95
+  // Shifted per speaker so the announcer and the analyst stay distinguishable
+  // even on the built-in voice, which offers no second voice to pick.
+  utterance.rate = tuning.rate ?? 0.95
+  utterance.pitch = tuning.pitch ?? 1
 
   // Chrome pauses long utterances in background tabs; nudging it keeps them going.
   const keepAlive = window.setInterval(() => {

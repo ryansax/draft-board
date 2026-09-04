@@ -74,11 +74,20 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
               hint="Without it, fun mode uses the browser's built-in voice — still works, just plainer."
             />
             <Field
-              label="Voice ID (optional)"
+              label="Announcer voice ID (optional)"
               placeholder="21m00Tcm4TlvDq8ikWAM (Rachel)"
               value={settings.elevenLabsVoiceId}
               onChange={(v) => setSettings({ elevenLabsVoiceId: v })}
               disabled={!settings.funMode}
+              hint="Reads the pick and who is on the clock. Blank uses a stock voice."
+            />
+            <Field
+              label="Analyst voice ID (optional)"
+              placeholder="a different ElevenLabs voice"
+              value={settings.elevenLabsAnalystVoiceId}
+              onChange={(v) => setSettings({ elevenLabsAnalystVoiceId: v })}
+              disabled={!settings.funMode || !settings.pickAnalysis}
+              hint="Reads the analyst take, so it sounds like a second person. Blank uses the announcer voice."
             />
           </Dependent>
         </Section>

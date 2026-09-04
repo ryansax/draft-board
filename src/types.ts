@@ -133,7 +133,10 @@ export interface AppSettings {
   /** Ask Claude for a short analyst take after each announced pick. */
   pickAnalysis: boolean
   elevenLabsApiKey: string
+  /** Reads the pick and who is on the clock. */
   elevenLabsVoiceId: string
+  /** Reads the analyst take. Falls back to the announcer voice when blank. */
+  elevenLabsAnalystVoiceId: string
   aiParseEnabled: boolean
   anthropicApiKey: string
   hideDrafted: boolean
@@ -147,6 +150,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pickAnalysis: false,
   elevenLabsApiKey: '',
   elevenLabsVoiceId: '',
+  elevenLabsAnalystVoiceId: '',
   aiParseEnabled: false,
   anthropicApiKey: '',
   hideDrafted: false,

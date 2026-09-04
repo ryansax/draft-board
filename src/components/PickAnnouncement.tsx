@@ -34,6 +34,13 @@ const HOLD_AFTER_MS = 2600
 
 type Stage = 'tease' | 'reveal' | 'done'
 
+/** Who is speaking: which ElevenLabs voice, and how to shade the fallback voice. */
+interface Voice {
+  apiKey: string
+  voiceId: string
+  browser: { rate: number; pitch: number }
+}
+
 export interface AnnouncementRequest {
   player: Player
   managerName: string
@@ -62,6 +69,7 @@ export default function PickAnnouncement({
   faces,
   apiKey,
   voiceId,
+  analystVoiceId,
   analysisKey,
   onFinished,
 }: {
@@ -69,6 +77,8 @@ export default function PickAnnouncement({
   faces: HeadshotLookup | null
   apiKey: string
   voiceId: string
+  /** Blank falls back to the announcer, which is the old single-voice behaviour. */
+  analystVoiceId: string
   /** Anthropic key. Empty means no analysis; the sequence just skips it. */
   analysisKey: string
   onFinished: () => void
@@ -110,6 +120,19 @@ export default function PickAnnouncement({
           .catch(() => null)
       : Promise.resolve(null)
 
+    const announcer: Voice = {
+      apiKey,
+      voiceId,
+      browser: { rate: 0.95, pitch: 1 },
+    }
+    const analyst: Voice = {
+      apiKey,
+      voiceId: analystVoiceId.trim() || voiceId,
+      // A touch quicker and lower, so the take reads as a second person even
+      // when both fall back to the browser's single built-in voice.
+      browser: { rate: 1.04, pitch: 0.85 },
+    }
+
     const run = async () => {
       // The alert lands with the banner, not after it. Waiting on the decode first
       // means the real sting plays rather than the fallback on the opening pick.
@@ -128,7 +151,7 @@ export default function PickAnnouncement({
       await wait(teaseMs)
       if (cancelled) return
 
-      await speak(announcement, () => setStage('reveal'), apiKey, voiceId, cleanups)
+      await speak(announcement, () => setStage('reveal'), announcer, cleanups)
       if (cancelled) return
 
       setStage('reveal')
@@ -138,7 +161,7 @@ export default function PickAnnouncement({
       if (cancelled) return
       if (take) {
         setAnalysis(take)
-        await speak({ text: take.take, revealAfter: '' }, () => {}, apiKey, voiceId, cleanups)
+        await speak({ text: take.take, revealAfter: '' }, () => {}, analyst, cleanups)
         if (cancelled) return
       }
 
@@ -153,8 +176,7 @@ export default function PickAnnouncement({
         await speak(
           { text: buildOnTheClockAnnouncement(request.nextManagerName), revealAfter: '' },
           () => {},
-          apiKey,
-          voiceId,
+          announcer,
           cleanups,
         )
       }
@@ -256,11 +278,11 @@ export default function PickAnnouncement({
 async function speak(
   announcement: Announcement,
   onReveal: () => void,
-  apiKey: string,
-  voiceId: string,
+  voice: Voice,
   cleanups: Array<() => void>,
 ): Promise<void> {
   const { text, revealAfter } = announcement
+  const { apiKey, voiceId } = voice
 
   if (apiKey.trim()) {
     try {
@@ -298,9 +320,13 @@ async function speak(
   if (browserSpeechAvailable()) {
     const revealIndex = revealAfter ? text.toLowerCase().indexOf(revealAfter.toLowerCase()) : -1
     const revealAtChar = revealIndex >= 0 ? revealIndex + revealAfter.length : -1
-    const { done, stop } = speakWithBrowser(text, (charIndex) => {
-      if (revealAtChar >= 0 && charIndex >= revealAtChar) onReveal()
-    })
+    const { done, stop } = speakWithBrowser(
+      text,
+      (charIndex) => {
+        if (revealAtChar >= 0 && charIndex >= revealAtChar) onReveal()
+      },
+      voice.browser,
+    )
     cleanups.push(stop)
     // Chrome can accept an utterance and never report it finished.
     await withDeadline(done, estimateSpeechMs(text))

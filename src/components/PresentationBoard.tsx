@@ -237,6 +237,7 @@ function Display({
           faces={faces}
           apiKey={settings.elevenLabsApiKey}
           voiceId={settings.elevenLabsVoiceId}
+          analystVoiceId={settings.elevenLabsAnalystVoiceId}
           analysisKey={settings.pickAnalysis ? settings.anthropicApiKey : ''}
           onFinished={() => setQueued(null)}
         />
