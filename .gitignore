@@ -1,0 +1,8 @@
+node_modules
+dist
+tsconfig.tsbuildinfo
+.DS_Store
+
+# The Fantasy Footballers cheat sheet is their copyrighted work, so it stays out
+# of a public repo. The parser tests need it locally — see the README.
+fixtures/

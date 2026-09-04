@@ -1,0 +1,131 @@
+@import 'tailwindcss';
+
+/*
+ * Anton, SIL OFL 1.1 (licence in public/fonts/Anton-OFL.txt). Self-hosted so the
+ * room display keeps its broadcast look with no internet. Imported rather than
+ * served from /public so the URL survives hosting under a sub-path.
+ */
+@font-face {
+  font-family: 'Anton';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/anton-latin.woff2') format('woff2');
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: 'Anton', 'Haettenschweiler', 'Arial Narrow Bold', system-ui, sans-serif;
+  /* Search results need more room than the header leaves for the input. */
+  --spacing-104: 26rem;
+  --color-sheet-tier: oklch(0.72 0.16 145);
+  --color-qb: oklch(0.62 0.19 25);
+  --color-rb: oklch(0.64 0.16 155);
+  --color-wr: oklch(0.60 0.17 250);
+  --color-te: oklch(0.68 0.16 70);
+  --color-dst: oklch(0.55 0.12 300);
+  --color-k: oklch(0.60 0.02 260);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/*
+ * The room display is always light, whatever the app's theme. It goes on a TV in
+ * daylight, where a dark screen mirrors the room and loses its contrast.
+ */
+body:has(.presentation-root) {
+  @apply bg-white;
+}
+
+body {
+  @apply bg-stone-100 text-stone-900 antialiased;
+  @apply dark:bg-stone-950 dark:text-stone-100;
+  /* Draft day on an iPad: never rubber-band the whole page. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Rows are tapped, not selected. */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@utility tap-target {
+  min-height: 44px;
+}
+
+/* Keep long columns smooth on iPad. */
+.column-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+
+/* --- Breaking-news animations for the pick-in screen ------------------------ */
+
+@keyframes sweep-in {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6em);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shine {
+  from {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(320%) skewX(-18deg);
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.anim-sweep {
+  transform-origin: left center;
+  animation: sweep-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-rise {
+  animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.45), transparent);
+  animation: shine 1.1s ease-out 0.35s both;
+}
+
+.anim-live-dot {
+  animation: live-pulse 1s ease-in-out infinite;
+}
