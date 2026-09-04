@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Player } from '../types'
+import type { Player, Session } from '../types'
 import type { HeadshotLookup } from '../lib/headshots'
 import {
   buildOnTheClockAnnouncement,
@@ -8,6 +8,7 @@ import {
   type Announcement,
 } from '../lib/announce'
 import { teamFullName } from '../lib/nflTeams'
+import { buildAnalysisContext, type PickAnalysis } from '../lib/analysis'
 import {
   browserSpeechAvailable,
   clipFromAudio,
@@ -38,7 +39,18 @@ export interface AnnouncementRequest {
   managerName: string
   round: number
   pickInRound: number
+  overallPick: number
   nextManagerName: string | null
+  /** The whole board, so the analyst has something to reason from. */
+  session: Session
+}
+
+const VERDICT_TONES: Record<string, string> = {
+  Steal: 'bg-emerald-600 text-white',
+  Value: 'bg-emerald-500 text-white',
+  Solid: 'bg-stone-700 text-white',
+  Fair: 'bg-stone-500 text-white',
+  Reach: 'bg-orange-600 text-white',
 }
 
 /**
@@ -50,16 +62,20 @@ export default function PickAnnouncement({
   faces,
   apiKey,
   voiceId,
+  analysisKey,
   onFinished,
 }: {
   request: AnnouncementRequest
   faces: HeadshotLookup | null
   apiKey: string
   voiceId: string
+  /** Anthropic key. Empty means no analysis; the sequence just skips it. */
+  analysisKey: string
   onFinished: () => void
 }) {
   const [stage, setStage] = useState<Stage>('tease')
   const [leaving, setLeaving] = useState(false)
+  const [analysis, setAnalysis] = useState<PickAnalysis | null>(null)
 
   useEffect(() => {
     /*
@@ -74,6 +90,25 @@ export default function PickAnnouncement({
 
     const wait = (ms: number) =>
       new Promise<void>((resolve) => timers.push(window.setTimeout(resolve, ms)))
+
+    // Fire the analyst off immediately: the sting and the announcement give it
+    // roughly ten seconds of cover, so it is usually ready before the card lands.
+    // Aborted on cleanup, so a re-run (StrictMode, or a fast second pick) cannot
+    // leave an orphaned request billing away in the background.
+    const analysisAbort = new AbortController()
+    cleanups.push(() => analysisAbort.abort())
+
+    const analysisPromise = analysisKey.trim()
+      ? import('../lib/analysisClient')
+          .then((m) =>
+            m.requestPickAnalysis(
+              buildAnalysisContext(request.session, request.player, request.overallPick),
+              analysisKey,
+              analysisAbort.signal,
+            ),
+          )
+          .catch(() => null)
+      : Promise.resolve(null)
 
     const run = async () => {
       // The alert lands with the banner, not after it. Waiting on the decode first
@@ -97,7 +132,17 @@ export default function PickAnnouncement({
       if (cancelled) return
 
       setStage('reveal')
-      await wait(HOLD_AFTER_MS)
+
+      // Whatever the analyst has by now; never wait on it.
+      const take = await Promise.race([analysisPromise, wait(1500).then(() => null)])
+      if (cancelled) return
+      if (take) {
+        setAnalysis(take)
+        await speak({ text: take.take, revealAfter: '' }, () => {}, apiKey, voiceId, cleanups)
+        if (cancelled) return
+      }
+
+      await wait(take ? 900 : HOLD_AFTER_MS)
       if (cancelled) return
 
       setLeaving(true)
@@ -184,6 +229,21 @@ export default function PickAnnouncement({
             className="absolute right-0 bottom-0 h-[104%] w-auto max-w-none translate-x-[14%]"
           />
         </div>
+
+        {analysis && (
+          <div className="anim-rise mt-[2vh] flex max-w-5xl items-start gap-[1.2vw]">
+            <span
+              className={`shrink-0 rounded-lg px-[1vw] py-[0.5vh] font-display text-[clamp(0.7rem,1.5vw,1.9rem)] tracking-[0.1em] ${
+                VERDICT_TONES[analysis.verdict] ?? VERDICT_TONES.Solid
+              }`}
+            >
+              {analysis.verdict.toUpperCase()}
+            </span>
+            <p className="text-[clamp(0.75rem,1.5vw,1.9rem)] leading-snug font-semibold text-stone-700">
+              {analysis.take}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

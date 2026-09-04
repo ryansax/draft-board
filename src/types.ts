@@ -130,6 +130,8 @@ export interface AppSettings {
   playerImages: boolean
   /** Announce each pick out loud on the room display. */
   funMode: boolean
+  /** Ask Claude for a short analyst take after each announced pick. */
+  pickAnalysis: boolean
   elevenLabsApiKey: string
   elevenLabsVoiceId: string
   aiParseEnabled: boolean
@@ -142,6 +144,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   darkMode: false,
   playerImages: true,
   funMode: false,
+  pickAnalysis: false,
   elevenLabsApiKey: '',
   elevenLabsVoiceId: '',
   aiParseEnabled: false,

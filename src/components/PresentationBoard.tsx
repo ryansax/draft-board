@@ -161,6 +161,8 @@ function Display({
       managerName: session.managers[slot - 1] ?? `Team ${slot}`,
       round: roundForPick(fresh, session.leagueSize),
       pickInRound: fresh - (roundForPick(fresh, session.leagueSize) - 1) * session.leagueSize,
+      overallPick: fresh,
+      session,
       nextManagerName:
         fresh + 1 <= rounds * session.leagueSize
           ? (session.managers[nextSlot - 1] ?? `Team ${nextSlot}`)
@@ -235,6 +237,7 @@ function Display({
           faces={faces}
           apiKey={settings.elevenLabsApiKey}
           voiceId={settings.elevenLabsVoiceId}
+          analysisKey={settings.pickAnalysis ? settings.anthropicApiKey : ''}
           onFinished={() => setQueued(null)}
         />
       )}

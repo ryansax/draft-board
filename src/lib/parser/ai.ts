@@ -1,8 +1,6 @@
 import { BADGES, type Badge, type Player, type Position, POSITIONS } from '../../types'
 import type { ParseIssue } from './types'
 
-const MODEL = 'claude-opus-5'
-const ENDPOINT = 'https://api.anthropic.com/v1/messages'
 
 export interface AiBadgeRow {
   position: Position
@@ -11,7 +9,9 @@ export interface AiBadgeRow {
   badges: Badge[]
 }
 
-const PROMPT = `You are reading a Fantasy Footballers "Redraft Rankings" cheat sheet page.
+export const BADGE_MODEL = 'claude-opus-5'
+
+export const BADGE_PROMPT = `You are reading a Fantasy Footballers "Redraft Rankings" cheat sheet page.
 
 Small coloured glyphs appear immediately after some player names. The legend at the
 top of the page maps them:
@@ -38,50 +38,6 @@ lists. If you cannot read a glyph confidently, leave it out.`
  *
  * Called direct from the browser with the user's own key — personal local use only.
  */
-export async function extractBadgesWithAi(
-  pageImages: string[],
-  apiKey: string,
-  signal?: AbortSignal,
-): Promise<AiBadgeRow[]> {
-  const content: unknown[] = pageImages.map((dataUrl) => ({
-    type: 'image',
-    source: {
-      type: 'base64',
-      media_type: 'image/png',
-      data: dataUrl.replace(/^data:image\/png;base64,/, ''),
-    },
-  }))
-  content.push({ type: 'text', text: PROMPT })
-
-  const response = await fetch(ENDPOINT, {
-    method: 'POST',
-    signal,
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 8000,
-      messages: [{ role: 'user', content }],
-    }),
-  })
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    throw new Error(`Anthropic API ${response.status}: ${detail.slice(0, 300)}`)
-  }
-
-  const body = await response.json()
-  const text = (body.content ?? [])
-    .filter((block: any) => block.type === 'text')
-    .map((block: any) => block.text)
-    .join('')
-  return coerceBadgeRows(text)
-}
-
 /** Pull the JSON payload out of a model response and validate it into badge rows. */
 export function coerceBadgeRows(text: string): AiBadgeRow[] {
   const start = text.indexOf('{')

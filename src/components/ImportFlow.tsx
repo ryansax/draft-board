@@ -73,7 +73,7 @@ export default function ImportFlow({ onDone, onCancel }: { onDone: () => void; o
           setStatus('Rendering pages for the badge pass…')
           const images = await renderPagesToPng(buffer.slice(0))
           setStatus('Asking Claude to read the badge glyphs…')
-          const { extractBadgesWithAi } = await import('../lib/parser/ai')
+          const { extractBadgesWithAi } = await import('../lib/parser/aiClient')
           const rows = await extractBadgesWithAi(images, settings.anthropicApiKey.trim())
           const merged = mergeBadges(parsed.players, rows)
           adopt({ ...parsed, players: merged.players }, merged.issues)

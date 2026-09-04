@@ -279,11 +279,41 @@ surname. The card holds, fades out, and the voice adds "{next manager} is on the
 A defense is announced as "the Houston Texans defense" rather than saying defense twice, and
 ordinals are spoken as words ("fifth", "twenty-first") because digits read badly aloud.
 
+### Analyst take on each pick
+
+With **Analyst take** on (Settings, under fun mode), Claude adds a one-line reaction after the
+announcement: a verdict chip — Steal, Value, Solid, Fair or Reach — and a sentence, read out
+and shown under the card.
+
+It reasons **only from the sheet and the board**: the player's rank, tier, ADP against where
+he actually went, risk and upside, the badges, how much of his tier is left, who the next best
+at the position is, and what that manager still needs to start. The system prompt tells it
+plainly that it has no access to this season's news, statistics or injuries and must not imply
+otherwise — without that it will happily invent a storyline, because a draft is exactly the
+kind of context that invites one.
+
+Uses `claude-opus-5` at low effort with a structured output, requested the moment the sting
+starts so it is normally ready before the card lands. Practical guarantees:
+
+- **It never delays the board.** The take is raced against a short deadline; if it is not back
+  in time the sequence carries on without it.
+- **One request per pick.** The request is aborted on cleanup, so a re-render cannot leave an
+  orphan running up cost.
+- **Fails silently.** No key, a bad key, offline, a refusal or a malformed reply all resolve to
+  "no take" rather than an error on screen.
+
+It costs an Opus call per pick, so it is off by default and needs the same Anthropic key as the
+badge pass.
+
 ### Voices, and what happens without a key
 
 An ElevenLabs key goes in Settings (kept in this browser, sent straight to
 `api.elevenlabs.io` — fine on your own machine). Voice id is optional and defaults to a stock
 voice.
+
+Every option in Settings stays visible whether or not its parent is switched on — dependent
+controls dim and disable rather than vanishing. Hiding them meant you could open the dialog
+hunting for a key field and find no evidence it existed.
 
 Without a key it falls back to the **browser's built-in speech**, whose `boundary` events give
 word-level timing — less precise than character timings, but fun mode still works out of the
@@ -470,4 +500,5 @@ bundler rather than served from `/public`, so the same build runs from a domain 
 sub-path — which is what GitHub Pages serves projects from.
 
 Vite · React · TypeScript · Tailwind v4 · Zustand · Dexie (IndexedDB) · pdf.js · lucide-react ·
-Vitest. pdf.js is dynamically imported so it stays off the board's critical path.
+Vitest · `@anthropic-ai/sdk` (lazy-loaded — the badge pass and the analyst take each sit in
+their own chunk so the SDK never lands on the board's critical path). pdf.js is dynamically imported so it stays off the board's critical path.
