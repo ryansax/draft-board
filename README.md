@@ -281,9 +281,15 @@ ordinals are spoken as words ("fifth", "twenty-first") because digits read badly
 
 ### Analyst take on each pick
 
-With **Analyst take** on (Settings, under fun mode), Claude adds a one-line reaction after the
-announcement: a verdict chip — Steal, Value, Solid, Fair or Reach — and a sentence, read out
-and shown under the card.
+With **Analyst take** on (Settings, under fun mode), Claude adds a spoken reaction after the
+announcement — **audio only**, nothing added to the screen; the card stays as it is while the
+analyst talks over it.
+
+Mostly it plays the pick straight. Roughly one in three it has some fun — a pun, a dry aside,
+a bit of ribbing about a reach or a lopsided roster, or a jab at a silly team name. The pick
+number is the dial, so the variation is spread rather than clumped. The ribbing is aimed at
+the pick, never the person: roster construction and reaches are fair game, character and
+appearance are not, and it will not escalate a crude team name.
 
 **Your own draft prep never leaves the browser.** The take is displayed on a screen your whole
 league is watching, so the cheat sheet's ranks and tiers, its risk and upside scores, and the
@@ -303,6 +309,9 @@ starts so it is normally ready before the card lands. Practical guarantees:
 
 - **It never delays the board.** The take is raced against a short deadline; if it is not back
   in time the sequence carries on without it.
+- **It never delays the announcer.** Every spoken line is fetched ahead of when it is wanted —
+  the announcer's audio while the sting is still ringing, the take's the moment its text
+  arrives — so the voice starts on the beat the sting ends rather than after a round trip.
 - **One request per pick.** The request is aborted on cleanup, so a re-render cannot leave an
   orphan running up cost.
 - **Fails silently.** No key, a bad key, offline, a refusal or a malformed reply all resolve to

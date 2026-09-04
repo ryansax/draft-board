@@ -8,7 +8,7 @@ import {
   type Announcement,
 } from '../lib/announce'
 import { teamFullName } from '../lib/nflTeams'
-import { buildAnalysisContext, type PickAnalysis } from '../lib/analysis'
+import { buildAnalysisContext } from '../lib/analysis'
 import {
   browserSpeechAvailable,
   clipFromAudio,
@@ -24,7 +24,8 @@ import { loadSting, playPickSting, stingDurationMs } from '../lib/sting'
 
 /** The banner holds for the length of the sting, so the voice never talks over it. */
 const MIN_TEASE_MS = 1600
-const TEASE_TAIL_MS = 250
+/** Just enough to clear the sting's tail. The voice audio is already fetched. */
+const TEASE_TAIL_MS = 120
 /** With no timings at all, reveal the card this far into the announcement. */
 const FALLBACK_REVEAL_FRACTION = 0.55
 /** Silent fallback: roughly how long the line would take to say. */
@@ -52,14 +53,6 @@ export interface AnnouncementRequest {
   session: Session
 }
 
-const VERDICT_TONES: Record<string, string> = {
-  Steal: 'bg-emerald-600 text-white',
-  Value: 'bg-emerald-500 text-white',
-  Solid: 'bg-stone-700 text-white',
-  Fair: 'bg-stone-500 text-white',
-  Reach: 'bg-orange-600 text-white',
-}
-
 /**
  * The full-screen "the pick is in" moment. The card lands on the beat the voice
  * finishes the player's name, then hands the screen back to the board.
@@ -85,7 +78,6 @@ export default function PickAnnouncement({
 }) {
   const [stage, setStage] = useState<Stage>('tease')
   const [leaving, setLeaving] = useState(false)
-  const [analysis, setAnalysis] = useState<PickAnalysis | null>(null)
 
   useEffect(() => {
     /*
@@ -107,6 +99,11 @@ export default function PickAnnouncement({
     // leave an orphaned request billing away in the background.
     const analysisAbort = new AbortController()
     cleanups.push(() => analysisAbort.abort())
+
+    // Same for the voice fetches: a cancelled run must not leave requests in
+    // flight, or StrictMode's double mount bills every line twice.
+    const speechAbort = new AbortController()
+    cleanups.push(() => speechAbort.abort())
 
     const analysisPromise = analysisKey.trim()
       ? import('../lib/analysisClient')
@@ -133,39 +130,60 @@ export default function PickAnnouncement({
       browser: { rate: 1.04, pitch: 0.85 },
     }
 
+    const announcement: Announcement = buildPickAnnouncement(
+      request.player,
+      request.managerName,
+      request.round,
+      request.pickInRound,
+    )
+
+    // Fetch the announcer's audio NOW, while the sting is still playing. Waiting
+    // until the sting ended left a dead gap the length of an ElevenLabs round
+    // trip before the voice started.
+    const announcementSpeech = prepareSpeech(announcement, announcer, cleanups, speechAbort.signal)
+
+    // Start fetching the take's audio the moment its text arrives — usually while
+    // the announcer is still talking — rather than waiting for him to finish.
+    const takeSpeechPromise = analysisPromise.then(async (take) =>
+      take
+        ? {
+            take,
+            speech: await prepareSpeech(
+              { text: take.take, revealAfter: '' },
+              analyst,
+              cleanups,
+              speechAbort.signal,
+            ),
+          }
+        : null,
+    )
+
     const run = async () => {
-      // The alert lands with the banner, not after it. Waiting on the decode first
-      // means the real sting plays rather than the fallback on the opening pick.
+      // Waiting on the decode first means the real sting plays rather than the
+      // fallback on the opening pick.
       await loadSting()
       if (cancelled) return
       playPickSting()
       const teaseMs = Math.max(MIN_TEASE_MS, stingDurationMs() + TEASE_TAIL_MS)
 
-      const announcement: Announcement = buildPickAnnouncement(
-        request.player,
-        request.managerName,
-        request.round,
-        request.pickInRound,
-      )
-
       await wait(teaseMs)
       if (cancelled) return
 
-      await speak(announcement, () => setStage('reveal'), announcer, cleanups)
+      // Already fetched, so this starts immediately.
+      await (await announcementSpeech).play(() => setStage('reveal'))
       if (cancelled) return
 
       setStage('reveal')
 
       // Whatever the analyst has by now; never wait on it.
-      const take = await Promise.race([analysisPromise, wait(1500).then(() => null)])
+      const ready = await Promise.race([takeSpeechPromise, wait(2500).then(() => null)])
       if (cancelled) return
-      if (take) {
-        setAnalysis(take)
-        await speak({ text: take.take, revealAfter: '' }, () => {}, analyst, cleanups)
+      if (ready) {
+        await ready.speech.play(() => {})
         if (cancelled) return
       }
 
-      await wait(take ? 900 : HOLD_AFTER_MS)
+      await wait(ready ? 900 : HOLD_AFTER_MS)
       if (cancelled) return
 
       setLeaving(true)
@@ -173,12 +191,14 @@ export default function PickAnnouncement({
       if (cancelled) return
 
       if (request.nextManagerName) {
-        await speak(
+        const onTheClock = await prepareSpeech(
           { text: buildOnTheClockAnnouncement(request.nextManagerName), revealAfter: '' },
-          () => {},
           announcer,
           cleanups,
+          speechAbort.signal,
         )
+        if (cancelled) return
+        await onTheClock.play(() => {})
       }
     }
 
@@ -252,35 +272,30 @@ export default function PickAnnouncement({
           />
         </div>
 
-        {analysis && (
-          <div className="anim-rise mt-[2vh] flex max-w-5xl items-start gap-[1.2vw]">
-            <span
-              className={`shrink-0 rounded-lg px-[1vw] py-[0.5vh] font-display text-[clamp(0.7rem,1.5vw,1.9rem)] tracking-[0.1em] ${
-                VERDICT_TONES[analysis.verdict] ?? VERDICT_TONES.Solid
-              }`}
-            >
-              {analysis.verdict.toUpperCase()}
-            </span>
-            <p className="text-[clamp(0.75rem,1.5vw,1.9rem)] leading-snug font-semibold text-stone-700">
-              {analysis.take}
-            </p>
-          </div>
-        )}
       </div>
     </div>
   )
 }
 
+/** A line of speech that has already been fetched and is ready to play. */
+interface PreparedSpeech {
+  play: (onReveal: () => void) => Promise<void>
+}
+
 /**
- * Say a line, calling `onReveal` as the watched phrase finishes. Tries ElevenLabs,
- * then the browser voice, then a silent timer — fun mode must never wedge the board.
+ * Fetch a line ahead of time so playback can start the instant it is wanted.
+ *
+ * Splitting fetch from play is the whole point: the announcer's audio is
+ * requested while the sting is still ringing, so there is no round trip between
+ * the sting ending and the voice starting. Falls back from ElevenLabs to the
+ * browser voice to a silent timer — fun mode must never wedge the board.
  */
-async function speak(
+async function prepareSpeech(
   announcement: Announcement,
-  onReveal: () => void,
   voice: Voice,
   cleanups: Array<() => void>,
-): Promise<void> {
+  signal?: AbortSignal,
+): Promise<PreparedSpeech> {
   const { text, revealAfter } = announcement
   const { apiKey, voiceId } = voice
 
@@ -290,58 +305,75 @@ async function speak(
         text,
         apiKey.trim(),
         voiceId.trim() || DEFAULT_VOICE_ID,
+        signal,
       )
       const clip = clipFromAudio(audio, alignment, phraseEndTime)
       cleanups.push(clip.stop)
 
-      const revealAt = revealAfter ? clip.endTimeOf(revealAfter) : null
-      if (revealAt !== null) {
-        let frame = 0
-        const watch = () => {
-          if (clip.currentTime() >= revealAt) return onReveal()
-          frame = requestAnimationFrame(watch)
-        }
-        frame = requestAnimationFrame(watch)
-        cleanups.push(() => cancelAnimationFrame(frame))
-      } else if (revealAfter) {
-        // No timings came back: reveal partway rather than not at all.
-        const t = window.setTimeout(onReveal, text.length * MS_PER_CHARACTER * FALLBACK_REVEAL_FRACTION)
-        cleanups.push(() => window.clearTimeout(t))
+      return {
+        play: async (onReveal) => {
+          const revealAt = revealAfter ? clip.endTimeOf(revealAfter) : null
+          if (revealAt !== null) {
+            let frame = 0
+            const watch = () => {
+              if (clip.currentTime() >= revealAt) return onReveal()
+              frame = requestAnimationFrame(watch)
+            }
+            frame = requestAnimationFrame(watch)
+            cleanups.push(() => cancelAnimationFrame(frame))
+          } else if (revealAfter) {
+            // No timings came back: reveal partway rather than not at all.
+            const t = window.setTimeout(
+              onReveal,
+              text.length * MS_PER_CHARACTER * FALLBACK_REVEAL_FRACTION,
+            )
+            cleanups.push(() => window.clearTimeout(t))
+          }
+          await withDeadline(clip.play(), estimateSpeechMs(text))
+          onReveal()
+        },
       }
-
-      await withDeadline(clip.play(), estimateSpeechMs(text))
-      onReveal()
-      return
     } catch {
       // Fall through to a voice that cannot fail on a network hiccup.
     }
   }
 
+  // The browser voice cannot be fetched ahead of time, but it starts instantly.
   if (browserSpeechAvailable()) {
-    const revealIndex = revealAfter ? text.toLowerCase().indexOf(revealAfter.toLowerCase()) : -1
-    const revealAtChar = revealIndex >= 0 ? revealIndex + revealAfter.length : -1
-    const { done, stop } = speakWithBrowser(
-      text,
-      (charIndex) => {
-        if (revealAtChar >= 0 && charIndex >= revealAtChar) onReveal()
+    return {
+      play: async (onReveal) => {
+        const revealIndex = revealAfter ? text.toLowerCase().indexOf(revealAfter.toLowerCase()) : -1
+        const revealAtChar = revealIndex >= 0 ? revealIndex + revealAfter.length : -1
+        const { done, stop } = speakWithBrowser(
+          text,
+          (charIndex) => {
+            if (revealAtChar >= 0 && charIndex >= revealAtChar) onReveal()
+          },
+          voice.browser,
+        )
+        cleanups.push(stop)
+        // Chrome can accept an utterance and never report it finished.
+        await withDeadline(done, estimateSpeechMs(text))
+        stop()
+        onReveal()
       },
-      voice.browser,
-    )
-    cleanups.push(stop)
-    // Chrome can accept an utterance and never report it finished.
-    await withDeadline(done, estimateSpeechMs(text))
-    stop()
-    onReveal()
-    return
+    }
   }
 
-  await new Promise<void>((resolve) => {
-    const reveal = window.setTimeout(onReveal, text.length * MS_PER_CHARACTER * FALLBACK_REVEAL_FRACTION)
-    const end = window.setTimeout(resolve, text.length * MS_PER_CHARACTER)
-    cleanups.push(() => {
-      window.clearTimeout(reveal)
-      window.clearTimeout(end)
-    })
-  })
-  onReveal()
+  return {
+    play: async (onReveal) => {
+      await new Promise<void>((resolve) => {
+        const reveal = window.setTimeout(
+          onReveal,
+          text.length * MS_PER_CHARACTER * FALLBACK_REVEAL_FRACTION,
+        )
+        const end = window.setTimeout(resolve, text.length * MS_PER_CHARACTER)
+        cleanups.push(() => {
+          window.clearTimeout(reveal)
+          window.clearTimeout(end)
+        })
+      })
+      onReveal()
+    },
+  }
 }

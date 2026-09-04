@@ -113,8 +113,19 @@ describe('the prompt', () => {
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/my guy/i)
   })
 
-  it('invites club and role context, which is the point of the change', () => {
+  it('invites club and role context', () => {
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/his role, the offence around him/i)
+  })
+
+  it('asks for humour occasionally rather than every time', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/one pick in three/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/mostly play it straight/i)
+  })
+
+  it('keeps the ribbing aimed at the pick, not the person', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Tease the pick, not the person/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never comment on anyone's character/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never escalate a crude team name/i)
   })
 
   it('hands over the facts as data', () => {
