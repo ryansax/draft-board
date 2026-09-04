@@ -111,7 +111,7 @@ describe('the prompt', () => {
     // It has no access to this season and would otherwise fill the gap.
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/out of date/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never invent/i)
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never quote a statistic/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/or quote a statistic/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/two sentences at most/i)
   })
 
@@ -125,15 +125,47 @@ describe('the prompt', () => {
   })
 
   it('stops the value being the opening line every time', () => {
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Do not open with the value every time/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Worth leading with maybe one pick in four/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never invent one/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/no pick counts/i)
+  })
+
+  it('puts the player ahead of the roster he landed on', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Lead with the player/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/not about the roster he landed on/i)
+    // Roster fit is demoted to an occasional angle, not the default one.
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/The other angles are seasoning, not the meal/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Do not narrate a roster back to the room/i)
+  })
+
+  it('asks for the ceiling, the risk, and who he is competing with', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/The ceiling/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/What would have to go wrong/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Who he is competing with/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/in and out of the lineup/i)
+  })
+
+  it('allows a career injury pattern but not a claim about today', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/A career-long pattern is yours to use/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never got through a season intact/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(
+      /never do is assert a current or recent injury, trade, suspension, holdout or coaching change as fact/i,
+    )
+    // Depth charts turn over every year, so they have to be hedged.
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/as a question or a reputation, never as a statement about today/i)
+  })
+
+  it("is clear the player read is the model's own, not from the sheet", () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/none of it is given to you/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Your read on a player is your own/i)
+    // The words "risk" and "upside" may appear as football talk, but never as scores.
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/a rating, a risk or upside score/i)
   })
 
   it('lets it rib the players, reputation only', () => {
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/rib the players/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/long-standing reputation/i)
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never assert a current or recent injury/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/assert a current or recent injury/i)
   })
 
   it('asks for humour occasionally rather than every time', () => {
