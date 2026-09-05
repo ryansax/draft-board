@@ -145,8 +145,14 @@ describe('the prompt', () => {
     // A named teammate is only safe as a condition, never as today's depth chart.
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/naming teammates is wanted, asserting today's depth chart is not/i)
     // A wrong name is worse than no name.
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Only name a teammate you are genuinely confident plays for that club/i)
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/describe the situation without one/i)
+    // Teammates now come from a live roster feed, so memory is not allowed a vote.
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(
+      /Never name a teammate who is not in the lists you were given/i,
+    )
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(
+      /You may only name a teammate who appears in "teammatesAtHisPosition" or "quarterbacks"/i,
+    )
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/talk about the situation without naming anybody/i)
   })
 
   it('covers the unsettled pecking order, not just a queue to jump', () => {
@@ -281,5 +287,20 @@ describe('marketValueFor', () => {
     for (const pick of [1, 13, 40, 120, 200]) {
       expect(marketValueFor(50, pick, TEN)).not.toMatch(/\d/)
     }
+  })
+})
+
+describe('the prompt, on current facts', () => {
+  it('tells the model the roster feed beats its memory', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(
+      /They are today's truth and they override anything you think you remember/i,
+    )
+  })
+
+  it('makes it take career stage from the fact, not recollection', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(
+      /Use "experience" for where he is in his career and never your own recollection/i,
+    )
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/he is not a rookie and has taken snaps/i)
   })
 })

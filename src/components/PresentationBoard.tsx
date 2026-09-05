@@ -6,7 +6,7 @@ import { subscribeToSessions } from '../lib/broadcast'
 import { currentPick as computeCurrentPick, draftRounds } from '../lib/draft'
 import { overallToRoundPick } from '../lib/adp'
 import { buildDraftGrid, roundForPick, slotForPick, type GridCell } from '../lib/insights'
-import { usePlayerImages } from '../lib/usePlayerImages'
+import { usePlayerImages, useSquadFacts } from '../lib/usePlayerImages'
 import { loadSettings, saveSettings } from '../lib/db'
 import type { HeadshotLookup } from '../lib/headshots'
 import DraftCard from './DraftCard'
@@ -116,6 +116,8 @@ function Display({
   const made = session.players.filter((p) => p.draftedAtPick !== null).length
   const settings = loadSettings()
   const faces = usePlayerImages(settings.playerImages)
+  // The analyst needs current rosters whether or not faces are switched on.
+  const squad = useSquadFacts(settings.pickAnalysis && Boolean(settings.anthropicApiKey))
   const [funMode, setFunMode] = useState(settings.funMode)
   const [soundReady, setSoundReady] = useState(false)
 
@@ -235,6 +237,7 @@ function Display({
         <PickAnnouncement
           request={queued}
           faces={faces}
+          squad={squad}
           apiKey={settings.elevenLabsApiKey}
           voiceId={settings.elevenLabsVoiceId}
           analystVoiceId={settings.elevenLabsAnalystVoiceId}

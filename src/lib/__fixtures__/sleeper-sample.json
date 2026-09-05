@@ -1,0 +1,72 @@
+{
+  "11729": {
+    "active": true,
+    "first_name": "Sione",
+    "full_name": "Sione Vaki",
+    "last_name": "Vaki",
+    "position": "RB",
+    "search_full_name": "sionevaki",
+    "team": "DET",
+    "years_exp": 2
+  },
+  "12522": {
+    "active": true,
+    "first_name": "Cam",
+    "full_name": "Cam Ward",
+    "last_name": "Ward",
+    "position": "QB",
+    "search_full_name": "camward",
+    "team": "TEN",
+    "years_exp": 1
+  },
+  "3163": {
+    "active": true,
+    "first_name": "Jared",
+    "full_name": "Jared Goff",
+    "last_name": "Goff",
+    "position": "QB",
+    "search_full_name": "jaredgoff",
+    "team": "DET",
+    "years_exp": 10
+  },
+  "5892": {
+    "active": true,
+    "first_name": "David",
+    "full_name": "David Montgomery",
+    "last_name": "Montgomery",
+    "position": "RB",
+    "search_full_name": "davidmontgomery",
+    "team": "HOU",
+    "years_exp": 7
+  },
+  "5967": {
+    "active": true,
+    "first_name": "Tony",
+    "full_name": "Tony Pollard",
+    "last_name": "Pollard",
+    "position": "RB",
+    "search_full_name": "tonypollard",
+    "team": "TEN",
+    "years_exp": 7
+  },
+  "8205": {
+    "active": true,
+    "first_name": "Isiah",
+    "full_name": "Isiah Pacheco",
+    "last_name": "Pacheco",
+    "position": "RB",
+    "search_full_name": "isiahpacheco",
+    "team": "DET",
+    "years_exp": 4
+  },
+  "9221": {
+    "active": true,
+    "first_name": "Jahmyr",
+    "full_name": "Jahmyr Gibbs",
+    "last_name": "Gibbs",
+    "position": "RB",
+    "search_full_name": "jahmyrgibbs",
+    "team": "DET",
+    "years_exp": 3
+  }
+}

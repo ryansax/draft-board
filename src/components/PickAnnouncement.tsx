@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Player, Session } from '../types'
-import type { HeadshotLookup } from '../lib/headshots'
+import { teamLogoUrl, type HeadshotLookup } from '../lib/headshots'
+import type { SquadLookup } from '../lib/squad'
 import {
   buildOnTheClockAnnouncement,
   buildPickAnnouncement,
@@ -9,6 +10,7 @@ import {
   type Announcement,
 } from '../lib/announce'
 import { teamFullName } from '../lib/nflTeams'
+import { splitName } from '../lib/draft'
 import { buildAnalysisContext } from '../lib/analysis'
 import {
   browserSpeechAvailable,
@@ -61,6 +63,7 @@ export interface AnnouncementRequest {
 export default function PickAnnouncement({
   request,
   faces,
+  squad,
   apiKey,
   voiceId,
   analystVoiceId,
@@ -69,6 +72,8 @@ export default function PickAnnouncement({
 }: {
   request: AnnouncementRequest
   faces: HeadshotLookup | null
+  /** Current roster facts, so the take is not working from stale memory. */
+  squad: SquadLookup | null
   apiKey: string
   voiceId: string
   /** Blank falls back to the announcer, which is the old single-voice behaviour. */
@@ -110,7 +115,12 @@ export default function PickAnnouncement({
       ? import('../lib/analysisClient')
           .then((m) =>
             m.requestPickAnalysis(
-              buildAnalysisContext(request.session, request.player, request.overallPick),
+              buildAnalysisContext(
+                request.session,
+                request.player,
+                request.overallPick,
+                squad,
+              ),
               analysisKey,
               analysisAbort.signal,
             ),
@@ -219,6 +229,9 @@ export default function PickAnnouncement({
 
   const { player } = request
   const positionLabel = player.position === 'DST' ? 'Defense' : player.position
+  const [first, last] = splitName(player.name)
+  // A defence's "headshot" is already its logo; no need for it twice.
+  const logo = player.team && player.position !== 'DST' ? teamLogoUrl(player.team) : null
 
   return (
     <div
@@ -257,13 +270,28 @@ export default function PickAnnouncement({
             POSITION_COLORS[player.position]
           }`}
         >
-          <div className="relative z-10 min-w-0 flex-1 p-[3vw]">
+          {/* Capped so a long name breaks onto its own lines instead of running
+              under the headshot, which starts around 58% across. */}
+          <div className="relative z-10 min-w-0 max-w-[62%] flex-1 p-[3vw]">
             <div className="font-display text-[clamp(1.4rem,4.6vw,5.8rem)] leading-[1.02] tracking-[0.01em] uppercase">
-              {player.name}
+              {first && <div className="truncate">{first}</div>}
+              <div className="truncate">{last}</div>
             </div>
-            <div className="mt-[1.5vh] text-[clamp(0.8rem,1.6vw,2rem)] font-bold opacity-90">
-              {positionLabel}
-              {player.team ? ` · ${teamFullName(player.team)}` : ''}
+            <div className="mt-[1.5vh] flex items-center gap-[0.9vw] text-[clamp(0.8rem,1.6vw,2rem)] font-bold opacity-90">
+              {logo && (
+                <img
+                  src={logo}
+                  alt=""
+                  className="h-[clamp(1.4rem,3vw,3.6rem)] w-auto shrink-0 drop-shadow"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                  }}
+                />
+              )}
+              <span className="truncate">
+                {positionLabel}
+                {player.team ? ` · ${teamFullName(player.team)}` : ''}
+              </span>
             </div>
           </div>
           <PlayerFace

@@ -13,7 +13,7 @@ const TEAM_LOGO_BASE = 'https://sleepercdn.com/images/team_logos/nfl'
 
 const REFRESH_AFTER_MS = 24 * 60 * 60 * 1000
 /** Bump when the shape of a cached entry changes. */
-export const HEADSHOT_INDEX_VERSION = 1
+export const HEADSHOT_INDEX_VERSION = 2
 
 const FANTASY_POSITIONS = new Set(['QB', 'RB', 'WR', 'TE', 'K', 'DEF'])
 
@@ -29,6 +29,10 @@ export interface HeadshotEntry {
   t?: string | null
   /** 1 when Sleeper still lists the player as active. */
   a?: number
+  /** Display name, needed to name a teammate out loud. */
+  n?: string
+  /** Completed NFL seasons. 0 is a rookie. */
+  y?: number
 }
 
 export interface HeadshotIndex {
@@ -74,6 +78,8 @@ export function buildIndex(raw: Record<string, any>): HeadshotEntry[] {
       p: position,
       t: p.team ?? null,
       a: p.active === true ? 1 : 0,
+      n: typeof p.full_name === 'string' ? p.full_name : undefined,
+      y: Number.isFinite(p.years_exp) ? p.years_exp : undefined,
     })
   }
   return entries
