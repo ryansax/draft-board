@@ -5,6 +5,7 @@ import {
   buildOnTheClockAnnouncement,
   buildPickAnnouncement,
   phraseEndTime,
+  stripEmoji,
   type Announcement,
 } from '../lib/announce'
 import { teamFullName } from '../lib/nflTeams'
@@ -296,7 +297,10 @@ async function prepareSpeech(
   cleanups: Array<() => void>,
   signal?: AbortSignal,
 ): Promise<PreparedSpeech> {
-  const { text, revealAfter } = announcement
+  // Belt and braces: the builders already strip emoji out of team names, but the
+  // analyst's take can quote one back, and no voice reads "🔥" usefully.
+  const text = stripEmoji(announcement.text) || announcement.text
+  const { revealAfter } = announcement
   const { apiKey, voiceId } = voice
 
   if (apiKey.trim()) {

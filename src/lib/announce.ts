@@ -30,6 +30,27 @@ const POSITION_WORDS: Record<Position, string> = {
   K: 'kicker',
 }
 
+/*
+ * Emoji belong on the board, not in the announcer's mouth. A voice handed "🔥"
+ * either reads it out as a word ("fire") or drops it silently, and either way the
+ * extra characters shift the alignment the card reveal is timed against.
+ */
+const EMOJI =
+  /[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\uFE0F\u200D\u20E3]/gu
+
+/** The same text with emoji taken out and the leftover spacing tidied. */
+export function stripEmoji(value: string): string {
+  return value.replace(EMOJI, '').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * A team name as the announcer should say it. A name that is nothing but emoji
+ * would leave a hole in the sentence, so it gets something sayable instead.
+ */
+export function speakableName(name: string, fallback = 'that team'): string {
+  return stripEmoji(name) || fallback
+}
+
 export interface Announcement {
   /** What the voice says. */
   text: string
@@ -47,7 +68,7 @@ export function buildPickAnnouncement(
   round: number,
   pickInRound: number,
 ): Announcement {
-  const opening = `With the ${ordinalWord(pickInRound)} pick of the ${ordinalWord(round)} round, ${managerName} selects`
+  const opening = `With the ${ordinalWord(pickInRound)} pick of the ${ordinalWord(round)} round, ${speakableName(managerName)} selects`
 
   // A defense is already "<City> <Nickname>"; saying its position twice reads badly.
   if (player.position === 'DST') {
@@ -62,7 +83,7 @@ export function buildPickAnnouncement(
 }
 
 export function buildOnTheClockAnnouncement(managerName: string): string {
-  return `${managerName} is on the clock.`
+  return `${speakableName(managerName)} is on the clock.`
 }
 
 function capitalise(value: string): string {

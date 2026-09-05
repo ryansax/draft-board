@@ -156,5 +156,12 @@ export function coerceAnalysis(raw: unknown): PickAnalysis | null {
   const verdict = VERDICTS.includes(candidate.verdict as Verdict)
     ? (candidate.verdict as Verdict)
     : 'Solid'
-  return { verdict, take: take.length > 320 ? `${take.slice(0, 317).trimEnd()}…` : take }
+  return { verdict, take: truncate(take, 320) }
+}
+
+/** Cut by code point, so an emoji at the limit is dropped rather than halved. */
+function truncate(value: string, limit: number): string {
+  const points = Array.from(value)
+  if (points.length <= limit) return value
+  return `${points.slice(0, limit - 3).join('').trimEnd()}…`
 }

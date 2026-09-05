@@ -16,7 +16,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-display: 'Anton', 'Haettenschweiler', 'Arial Narrow Bold', system-ui, sans-serif;
+  --font-display: 'Anton', 'Haettenschweiler', 'Arial Narrow Bold', system-ui, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   /* Search results need more room than the header leaves for the input. */
   --spacing-104: 26rem;
   --color-sheet-tier: oklch(0.72 0.16 145);

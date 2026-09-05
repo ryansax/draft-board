@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  buildOnTheClockAnnouncement,
-  buildPickAnnouncement,
-  lastNameOf,
-  ordinalWord,
-  phraseEndTime,
-  type Alignment,
-} from './announce'
+import { buildOnTheClockAnnouncement, buildPickAnnouncement, lastNameOf, ordinalWord, phraseEndTime, speakableName, stripEmoji, type Alignment } from './announce'
 import { teamFullName } from './nflTeams'
 import type { Player, Position } from '../types'
 
@@ -111,5 +104,43 @@ describe('phraseEndTime', () => {
 
   it('returns null on a malformed alignment rather than throwing', () => {
     expect(phraseEndTime({ characters: ['a'], character_start_times_seconds: [0], character_end_times_seconds: [] }, 'a')).toBeNull()
+  })
+})
+
+describe('emoji in team names', () => {
+  it('keeps the emoji out of what the announcer says', () => {
+    expect(stripEmoji('🔥 Leo’s Bus Drivers 🔥')).toBe('Leo’s Bus Drivers')
+    expect(stripEmoji('Dumpster 🗑️ Fire')).toBe('Dumpster Fire')
+  })
+
+  it('handles the emoji that are really several code points', () => {
+    // Skin tone modifier, ZWJ family, flag, and a keycap.
+    expect(stripEmoji('Team 👍🏽')).toBe('Team')
+    expect(stripEmoji('The 👨‍👩‍👧‍👦 Bunch')).toBe('The Bunch')
+    expect(stripEmoji('🇨🇦 Canada')).toBe('Canada')
+    expect(stripEmoji('Squad 1️⃣')).toBe('Squad 1')
+  })
+
+  it('leaves an ordinary name completely alone', () => {
+    expect(stripEmoji("Leo's Bus Drivers")).toBe("Leo's Bus Drivers")
+    expect(stripEmoji('Team 10')).toBe('Team 10')
+  })
+
+  it('says something rather than nothing for an all-emoji name', () => {
+    expect(speakableName('🔥🔥🔥')).toBe('that team')
+    expect(speakableName('  ')).toBe('that team')
+    expect(speakableName('🐐', 'the goats')).toBe('the goats')
+  })
+
+  it('reads the pick out without the emoji', () => {
+    const player = { name: 'Bijan Robinson', position: 'RB', team: 'ATL' } as Player
+    const { text } = buildPickAnnouncement(player, '🔥 Leo’s Bus Drivers 🔥', 2, 5)
+    expect(text).toContain('Leo’s Bus Drivers selects')
+    expect(text).not.toMatch(/\p{Extended_Pictographic}/u)
+  })
+
+  it('does the same on the clock', () => {
+    expect(buildOnTheClockAnnouncement('🐐 The Goats')).toBe('The Goats is on the clock.')
+    expect(buildOnTheClockAnnouncement('🔥🔥')).toBe('that team is on the clock.')
   })
 })
