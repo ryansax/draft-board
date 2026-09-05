@@ -139,14 +139,28 @@ describe('the prompt', () => {
   })
 
   it('wants teammates named, in the "what has to happen" frame', () => {
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Who he is competing with, by name/i)
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/the veteran he has to leapfrog/i)
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/A backup quarterback is only worth anything/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/The rest of his offence, by name/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/A queue he has to jump/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/A backup quarterback is only worth a roster spot/i)
     // A named teammate is only safe as a condition, never as today's depth chart.
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Naming a teammate is encouraged in that conditional frame/i)
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/asserting his current depth-chart position is not/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/naming teammates is wanted, asserting today's depth chart is not/i)
     // A wrong name is worse than no name.
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/do not guess a name/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Only name a teammate you are genuinely confident plays for that club/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/describe the situation without one/i)
+  })
+
+  it('covers the unsettled pecking order, not just a queue to jump', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/An unsettled pecking order/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/nobody sure which of them becomes the go-to target/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/name both, and frame it as the open question it is/i)
+    // Who is throwing him the ball is part of the picture.
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Who is getting him the ball/i)
+    // Wanted when it fits, not forced onto every pick.
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Not every pick — reach for this when the situation calls for it/i)
+  })
+
+  it('frames the hedging as stale knowledge, not as privacy', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/This is a limit on your knowledge, not a secret being kept/i)
   })
 
   it('will scold a bad pick instead of hedging it', () => {
@@ -160,7 +174,7 @@ describe('the prompt', () => {
   it('asks for the ceiling, the risk, and who he is competing with', () => {
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/The ceiling/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/What would have to go wrong/i)
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Who he is competing with/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/The rest of his offence, by name/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/in and out of the lineup/i)
   })
 
@@ -171,7 +185,7 @@ describe('the prompt', () => {
       /never do is assert a current or recent injury, trade, suspension, holdout or coaching change as fact/i,
     )
     // Depth charts turn over every year, so they have to be hedged.
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/as a condition, a question or a reputation, never as a statement about today/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/as a condition, a question or a reputation, never as a flat statement about today/i)
   })
 
   it("is clear the player read is the model's own, not from the sheet", () => {
