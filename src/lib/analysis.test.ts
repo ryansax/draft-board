@@ -138,6 +138,25 @@ describe('the prompt', () => {
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Do not narrate a roster back to the room/i)
   })
 
+  it('wants teammates named, in the "what has to happen" frame', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Who he is competing with, by name/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/the veteran he has to leapfrog/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/A backup quarterback is only worth anything/i)
+    // A named teammate is only safe as a condition, never as today's depth chart.
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Naming a teammate is encouraged in that conditional frame/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/asserting his current depth-chart position is not/i)
+    // A wrong name is worse than no name.
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/do not guess a name/i)
+  })
+
+  it('will scold a bad pick instead of hedging it', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/When a pick is genuinely bad, say so and do not soften it/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/that earns a scolding/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/your take should sound like a Reach/i)
+    // Harsh about the decision, never about the human being.
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/the target is always the pick and the roster, never the manager as a person/i)
+  })
+
   it('asks for the ceiling, the risk, and who he is competing with', () => {
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/The ceiling/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/What would have to go wrong/i)
@@ -152,7 +171,7 @@ describe('the prompt', () => {
       /never do is assert a current or recent injury, trade, suspension, holdout or coaching change as fact/i,
     )
     // Depth charts turn over every year, so they have to be hedged.
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/as a question or a reputation, never as a statement about today/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/as a condition, a question or a reputation, never as a statement about today/i)
   })
 
   it("is clear the player read is the model's own, not from the sheet", () => {
@@ -168,13 +187,13 @@ describe('the prompt', () => {
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/assert a current or recent injury/i)
   })
 
-  it('asks for humour occasionally rather than every time', () => {
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/one pick in three/i)
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/mostly play it straight/i)
+  it('asks for humour on about half the picks now, not a third', () => {
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/roughly every other pick/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/on even numbers lean into the joke/i)
   })
 
   it('keeps the ribbing aimed at the pick, not the person', () => {
-    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/Tease the pick and the roster, not the manager as a person/i)
+    expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/the target is always the pick and the roster, never the manager as a person/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never anything personal or cruel/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/never their character, appearance or intelligence/i)
     expect(ANALYSIS_SYSTEM_PROMPT).toMatch(/do not escalate a crude team name/i)
