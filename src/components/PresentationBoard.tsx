@@ -9,6 +9,7 @@ import { buildDraftGrid, roundForPick, slotForPick, type GridCell } from '../lib
 import { usePlayerImages, useSquadFacts } from '../lib/usePlayerImages'
 import { cellForMoment, momentForCell, slotAtMoment, type PickTrade } from '../lib/trades'
 import TradeBadge from './TradeBadge'
+import TeamTotals from './TeamTotals'
 import TradeAlert, { type TradeAlertRequest } from './TradeAlert'
 import { speakLine } from '../lib/speech'
 import { loadSettings, saveSettings } from '../lib/db'
@@ -160,7 +161,14 @@ function Display({
   const faces = usePlayerImages(settings.playerImages)
   // The analyst needs current rosters whether or not faces are switched on.
   const squad = useSquadFacts(settings.pickAnalysis && Boolean(settings.anthropicApiKey))
-  const [funMode, setFunMode] = useState(settings.funMode && !viewOnly)
+  /*
+   * A watcher gets fun mode as well, on their own machine and off until they turn
+   * it on: eight laptops announcing in unison is a choice the room should make
+   * one at a time. With no ElevenLabs key of their own it falls back to the
+   * browser voice, which needs nothing.
+   */
+  const [funMode, setFunMode] = useState(settings.funMode)
+  const [tab, setTab] = useState<'board' | 'totals'>('board')
   const [soundReady, setSoundReady] = useState(false)
 
   /** Browsers need a gesture before audio is allowed; any click on the board counts. */
@@ -261,9 +269,6 @@ function Display({
           </span>
         </div>
 
-        {/* Announcements belong to the room's television. A watcher gets the board
-            and nothing that makes noise, so the control is not offered at all. */}
-        {!viewOnly && (
         <button
           onClick={() => {
             const next = !funMode
@@ -283,9 +288,8 @@ function Display({
         >
           {funMode ? <Volume2 size={20} /> : <VolumeX size={20} />}
         </button>
-        )}
 
-        {!viewOnly && funMode && !soundReady && audioBlocked() && (
+        {funMode && !soundReady && audioBlocked() && (
           <span className="shrink-0 rounded-lg bg-amber-100 px-[0.8vw] py-[0.6vh] text-[clamp(0.55rem,0.75vw,0.9rem)] font-semibold text-amber-900">
             Click anywhere to enable sound
           </span>
@@ -331,8 +335,29 @@ function Display({
         />
       )}
 
+      {viewOnly && (
+        <div className="flex shrink-0 gap-[0.6vw] border-b border-stone-200 px-[2vw] py-[0.8vh]">
+          {(['board', 'totals'] as const).map((name) => (
+            <button
+              key={name}
+              onClick={() => setTab(name)}
+              className={`rounded-lg px-[1.4vw] py-[0.7vh] text-[clamp(0.65rem,1.05vw,1.25rem)] font-bold tracking-wide uppercase ${
+                tab === name
+                  ? 'bg-stone-900 text-white'
+                  : 'text-stone-500 hover:bg-stone-100 hover:text-stone-900'
+              }`}
+            >
+              {name === 'board' ? 'Draft board' : 'Team totals'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {viewOnly && tab === 'totals' && <TeamTotals session={session} />}
+
       {/* The board */}
       <div
+        hidden={viewOnly && tab !== 'board'}
         ref={scroller}
         onWheel={() => (scrolledAt.current = Date.now())}
         onTouchMove={() => (scrolledAt.current = Date.now())}
