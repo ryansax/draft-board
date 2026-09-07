@@ -1,3 +1,4 @@
+import { stripEmoji } from './announce'
 import type { Alignment } from './announce'
 
 /**
@@ -166,4 +167,55 @@ export function speakWithBrowser(
 
 export function browserSpeechAvailable(): boolean {
   return typeof speechSynthesis !== 'undefined'
+}
+
+/**
+ * Say one line and resolve when it has finished.
+ *
+ * The pick announcement fetches its audio well ahead of playing it, because a
+ * round trip in the middle of the sequence is audible. A trade alert has no such
+ * choreography to protect — it just needs saying — so this is the plain version,
+ * falling back from ElevenLabs to the browser voice to a timer that waits roughly
+ * as long as the words would have taken.
+ */
+export async function speakLine(
+  text: string,
+  apiKey: string,
+  voiceId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const spoken = stripEmoji(text)
+  if (!spoken) return
+
+  if (apiKey.trim()) {
+    try {
+      const { audio, alignment } = await fetchElevenLabsClip(
+        spoken,
+        apiKey.trim(),
+        voiceId.trim() || DEFAULT_VOICE_ID,
+        signal,
+      )
+      const clip = clipFromAudio(audio, alignment, () => null)
+      try {
+        await withDeadline(clip.play(), estimateSpeechMs(spoken) + 4000)
+      } finally {
+        clip.stop()
+      }
+      return
+    } catch {
+      // Fall through to the browser voice rather than going silent.
+    }
+  }
+
+  if (browserSpeechAvailable()) {
+    const { done, stop } = speakWithBrowser(spoken, () => {})
+    try {
+      await withDeadline(done, estimateSpeechMs(spoken) + 4000)
+    } finally {
+      stop()
+    }
+    return
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, estimateSpeechMs(spoken)))
 }

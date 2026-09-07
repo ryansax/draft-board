@@ -3,7 +3,8 @@ import { Pencil } from 'lucide-react'
 import type { Session } from '../types'
 import { buildDraftGrid, managerRosters, roundForPick, type GridCell } from '../lib/insights'
 import { usePlayerImages } from '../lib/usePlayerImages'
-import { momentForCell } from '../lib/trades'
+import { momentForCell, type PickTrade } from '../lib/trades'
+import TradeBadge from './TradeBadge'
 import { useSessionStore } from '../store/session'
 import type { HeadshotLookup } from '../lib/headshots'
 import DraftCard from './DraftCard'
@@ -105,6 +106,8 @@ export default function DraftGrid({ session, clockCell, onEditPick, onRenameMana
                     clockCell={clockCell}
                     filledAt={momentForCell(cell.pick, session.trades)}
                     faces={faces}
+                    trades={session.trades}
+                    leagueSize={session.leagueSize}
                     onEdit={onEditPick}
                   />
                 ))}
@@ -122,6 +125,8 @@ function Cell({
   clockCell,
   filledAt,
   faces,
+  trades,
+  leagueSize,
   onEdit,
 }: {
   cell: GridCell
@@ -130,6 +135,8 @@ function Cell({
   /** Which selection fills this cell. Differs from the cell only after a trade. */
   filledAt: number
   faces: HeadshotLookup | null
+  trades: PickTrade[]
+  leagueSize: number
   onEdit: (cell: number) => void
 }) {
   const onTheClock = cell.pick === clockCell
@@ -158,11 +165,16 @@ function Cell({
           className="h-14 w-full px-1"
         >
           <span
-            className={`text-[10px] tabular-nums ${
+            className={`flex flex-col items-center gap-0.5 text-[10px] tabular-nums ${
               onTheClock ? 'font-bold text-amber-900 dark:text-amber-100' : 'text-stone-400'
             }`}
           >
-            {onTheClock ? 'ON THE CLOCK' : traded ? `${cell.pick} → ${filledAt}` : cell.pick}
+            {onTheClock ? 'ON THE CLOCK' : cell.pick}
+            {traded && (
+              <span className="flex text-[9px] text-stone-500 dark:text-stone-400">
+                <TradeBadge cell={cell.pick} trades={trades} leagueSize={leagueSize} />
+              </span>
+            )}
           </span>
         </button>
       </td>
@@ -176,6 +188,9 @@ function Cell({
         <DraftCard
           player={player}
           pickLabel={String(cell.pick)}
+          note={
+            <TradeBadge cell={cell.pick} trades={trades} leagueSize={leagueSize} />
+          }
           faces={faces}
           isMine={cell.isMine}
           flagged={misattributed}

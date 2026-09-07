@@ -1,3 +1,4 @@
+import type React from 'react'
 import type { Player } from '../types'
 import type { HeadshotLookup } from '../lib/headshots'
 import { splitName } from '../lib/draft'
@@ -18,6 +19,7 @@ export default function DraftCard({
   faces,
   isMine = false,
   flagged = false,
+  note,
   title,
 }: {
   player: Player
@@ -27,6 +29,8 @@ export default function DraftCard({
   isMine?: boolean
   /** This pick sits in my column but is not on my roster. */
   flagged?: boolean
+  /** Rendered under the name — the trade mark, when this pick changed hands. */
+  note?: React.ReactNode
   title?: string
 }) {
   const [first, last] = splitName(player.name)
@@ -69,11 +73,16 @@ export default function DraftCard({
           <div className="shrink-0 text-[0.92em] font-bold tabular-nums opacity-90">{pickLabel}</div>
         </div>
 
-        <div className="flex items-baseline gap-[0.3em] text-[0.8em] font-bold tracking-wide uppercase opacity-85">
-          <span className="truncate">
-            {player.position}-{player.team}
-          </span>
-          {flagged && <span className="font-black text-amber-200">!</span>}
+        <div className="text-[0.8em] font-bold tracking-wide uppercase opacity-85">
+          <div className="flex items-baseline gap-[0.3em]">
+            <span className="truncate">
+              {player.position}-{player.team}
+            </span>
+            {flagged && <span className="font-black text-amber-200">!</span>}
+          </div>
+          {/* The trade mark gets its own line: sharing one with the club left
+              the club truncated, and the club is the more useful of the two. */}
+          {note && <div className="mt-[0.1em] flex text-[0.86em]">{note}</div>}
         </div>
       </div>
     </div>

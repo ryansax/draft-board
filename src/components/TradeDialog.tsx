@@ -2,7 +2,13 @@ import { useMemo, useState } from 'react'
 import { ArrowLeftRight, Undo2, X } from 'lucide-react'
 import type { Session } from '../types'
 import { Button } from './ui'
-import { cellForMoment, momentForCell, momentsForSlot, swapNextPicks } from '../lib/trades'
+import {
+  cellForMoment,
+  momentForCell,
+  momentsForSlot,
+  nextTradeGroup,
+  swapNextPicks,
+} from '../lib/trades'
 import { slotForPick } from '../lib/insights'
 
 /**
@@ -51,7 +57,7 @@ export default function TradeDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, slotA, slotB, count, moment])
 
-  const existing = session.trades.length
+  const existing = nextTradeGroup(session.trades) - 1
 
   return (
     <div
@@ -145,7 +151,7 @@ export default function TradeDialog({
         {existing > 0 && (
           <div className="mt-3 flex items-center justify-between rounded-lg border border-stone-200 p-2 text-xs dark:border-stone-700">
             <span className="text-stone-500 dark:text-stone-400">
-              {existing} pick {existing === 1 ? 'swap' : 'swaps'} in effect
+              {existing} {existing === 1 ? 'trade' : 'trades'} in effect
               {' · '}
               you pick next at {momentsForSlot(session, session.draftSlot).find((m) => m >= moment) ?? '—'}
             </span>

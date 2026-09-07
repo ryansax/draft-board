@@ -16,7 +16,7 @@ import * as db from '../lib/db'
 import { newId } from '../lib/id'
 import { currentPick, isMarked } from '../lib/draft'
 import { isMyTurn, slotForPick, statusForTap } from '../lib/insights'
-import { cellForMoment, swapNextPicks } from '../lib/trades'
+import { cellForMoment, nextTradeGroup, swapNextPicks } from '../lib/trades'
 import type { ParsedSheet } from '../lib/parser/types'
 
 /** Section 6: "stack of at least 20 actions". */
@@ -81,7 +81,7 @@ function migrate(session: Session): Session {
     managers,
     undoStack: session.undoStack ?? [],
     pickOffset: session.pickOffset ?? 0,
-    trades: session.trades ?? [],
+    trades: (session.trades ?? []).map((trade, i) => ({ ...trade, group: trade.group ?? i + 1 })),
     dismissedTierAlerts: session.dismissedTierAlerts ?? [],
   }
 }
@@ -369,23 +369,30 @@ export const useSessionStore = create<SessionState>((set, get) => {
         const moment = currentPick(session.players, session.pickOffset)
         const swaps = swapNextPicks(session, slotA, slotB, count, moment)
         if (swaps.length === 0) return null
-        return { ...session, trades: [...session.trades, ...swaps] }
+        // One agreement, however many picks it moved, carries one number.
+        const group = nextTradeGroup(session.trades)
+        return {
+          ...session,
+          trades: [...session.trades, ...swaps.map((swap) => ({ ...swap, group }))],
+        }
       })
     },
 
     undoLastTrade() {
       commit((session) => {
         if (session.trades.length === 0) return null
-        // A trade of two picks records two swaps; both come back together.
-        const moment = currentPick(session.players, session.pickOffset)
-        const kept = session.trades.slice(0, -1)
-        // Refuse to unwind a trade whose picks have already been used, which
-        // would move a card that is already on the board.
-        const undone = session.trades[session.trades.length - 1]
+        // One agreement comes back whole, however many picks it moved.
+        const group = nextTradeGroup(session.trades) - 1
+        const undone = session.trades.filter((t, i) => (t.group ?? i + 1) === group)
+        const kept = session.trades.filter((t, i) => (t.group ?? i + 1) !== group)
+        if (undone.length === 0) return null
+        // Refuse to unwind a trade whose picks have already been used; that would
+        // move a card that is already on the board.
+        const moved = new Set(undone.flatMap((t) => [t.a, t.b]))
         const used = session.players.some(
-          (p) => p.draftedAtPick === undone.a || p.draftedAtPick === undone.b,
+          (p) => p.draftedAtPick !== null && moved.has(p.draftedAtPick),
         )
-        if (used || moment < 1) return null
+        if (used) return null
         return { ...session, trades: kept }
       })
     },

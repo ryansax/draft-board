@@ -27,6 +27,13 @@ export interface PickTrade {
   /** The two cells whose turns were exchanged. Order is not significant. */
   a: number
   b: number
+  /**
+   * Which agreement this swap belongs to, numbered from 1 in the order they were
+   * struck. One handshake across two picks each is four cells sharing a number,
+   * which is what the badges on the board count. Absent on swaps recorded before
+   * trades were numbered.
+   */
+  group?: number
 }
 
 /**
@@ -123,4 +130,31 @@ export function tradeSummary(
 /** True when this cell no longer gets filled at its own number. */
 export function isTraded(cell: number, trades: PickTrade[]): boolean {
   return momentForCell(cell, trades) !== cell
+}
+
+
+/** The number the next agreement gets. Trades are numbered from one. */
+export function nextTradeGroup(trades: PickTrade[]): number {
+  return trades.reduce((highest, trade) => Math.max(highest, trade.group ?? 0), 0) + 1
+}
+
+/** Every swap this cell took part in: its trade number and the pick it went for. */
+export function tradesForCell(
+  cell: number,
+  trades: PickTrade[],
+): Array<{ group: number; partner: number }> {
+  const found: Array<{ group: number; partner: number }> = []
+  trades.forEach((trade, index) => {
+    const partner = trade.a === cell ? trade.b : trade.b === cell ? trade.a : null
+    if (partner !== null) found.push({ group: trade.group ?? index + 1, partner })
+  })
+  return found
+}
+
+/** The cells in one agreement, in pick order, for describing it out loud. */
+export function cellsInGroup(group: number, trades: PickTrade[]): number[] {
+  return trades
+    .filter((trade, index) => (trade.group ?? index + 1) === group)
+    .flatMap((trade) => [trade.a, trade.b])
+    .sort((x, y) => x - y)
 }

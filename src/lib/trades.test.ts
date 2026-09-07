@@ -8,6 +8,9 @@ import {
   momentsForSlot,
   slotAtMoment,
   swapNextPicks,
+  nextTradeGroup,
+  tradesForCell,
+  cellsInGroup,
   type PickTrade,
 } from './trades'
 
@@ -209,3 +212,54 @@ function slotForPickLocal(pick: number): number {
   const index = pick - (round - 1) * 10
   return round % 2 === 1 ? index : 10 - index + 1
 }
+
+describe('numbering the agreements', () => {
+  it('gives one handshake one number, however many picks it moved', () => {
+    const group = nextTradeGroup([])
+    const swaps = swapNextPicks(session(), 1, 6, 2, 61).map((s) => ({ ...s, group }))
+    expect(swaps.map((s) => s.group)).toEqual([1, 1])
+  })
+
+  it('numbers the next agreement after the last one', () => {
+    expect(nextTradeGroup([{ a: 1, b: 2, group: 1 }, { a: 3, b: 4, group: 1 }])).toBe(2)
+    expect(nextTradeGroup([{ a: 1, b: 2, group: 3 }])).toBe(4)
+  })
+
+  it('numbers swaps recorded before trades had numbers', () => {
+    // Old sessions carry no group; position stands in so nothing renders blank.
+    expect(tradesForCell(1, [{ a: 1, b: 2 }])).toEqual([{ group: 1, partner: 2 }])
+  })
+
+  it('tells a cell what it went for, from either side of the swap', () => {
+    const trades: PickTrade[] = [
+      { a: 60, b: 57, group: 1 },
+      { a: 61, b: 64, group: 1 },
+    ]
+    expect(tradesForCell(57, trades)).toEqual([{ group: 1, partner: 60 }])
+    expect(tradesForCell(60, trades)).toEqual([{ group: 1, partner: 57 }])
+    expect(tradesForCell(64, trades)).toEqual([{ group: 1, partner: 61 }])
+    expect(tradesForCell(61, trades)).toEqual([{ group: 1, partner: 64 }])
+    expect(tradesForCell(62, trades)).toEqual([])
+  })
+
+  it('marks a pick traded twice with both of its numbers', () => {
+    const trades: PickTrade[] = [
+      { a: 61, b: 66, group: 1 },
+      { a: 66, b: 70, group: 2 },
+    ]
+    expect(tradesForCell(66, trades)).toEqual([
+      { group: 1, partner: 61 },
+      { group: 2, partner: 70 },
+    ])
+  })
+
+  it('lists every cell in one agreement, in pick order', () => {
+    const trades: PickTrade[] = [
+      { a: 60, b: 57, group: 1 },
+      { a: 61, b: 64, group: 1 },
+      { a: 80, b: 75, group: 2 },
+    ]
+    expect(cellsInGroup(1, trades)).toEqual([57, 60, 61, 64])
+    expect(cellsInGroup(2, trades)).toEqual([75, 80])
+  })
+})

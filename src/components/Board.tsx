@@ -22,7 +22,7 @@ import {
 } from '../lib/draft'
 import { isMyTurn } from '../lib/insights'
 import { nextPickAtOrAfter } from '../lib/adp'
-import { cellForMoment, momentsForSlot } from '../lib/trades'
+import { cellForMoment, momentsForSlot, nextTradeGroup } from '../lib/trades'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import TradeDialog from './TradeDialog'
 import PickEditorDialog from './PickEditorDialog'
@@ -158,6 +158,7 @@ export default function Board({
 
   const [trading, setTrading] = useState(false)
   const [editingCell, setEditingCell] = useState<number | null>(null)
+  const tradeCount = session ? nextTradeGroup(session.trades) - 1 : 0
 
   const derived = useMemo(() => {
     if (!session) return null
@@ -465,8 +466,8 @@ export default function Board({
                   <ArrowLeftRight size={16} /> Trade picks
                 </Button>
                 <span className="text-xs text-stone-500 dark:text-stone-400">
-                  {session.trades.length > 0
-                    ? `${session.trades.length} pick ${session.trades.length === 1 ? 'swap' : 'swaps'} in effect.`
+                  {tradeCount > 0
+                    ? `${tradeCount} ${tradeCount === 1 ? 'trade' : 'trades'} in effect.`
                     : 'Opens a read-only board for the room. It follows your picks live.'}
                 </span>
               </div>

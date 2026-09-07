@@ -7,7 +7,10 @@ import { currentPick as computeCurrentPick, draftRounds } from '../lib/draft'
 import { overallToRoundPick } from '../lib/adp'
 import { buildDraftGrid, roundForPick, slotForPick, type GridCell } from '../lib/insights'
 import { usePlayerImages, useSquadFacts } from '../lib/usePlayerImages'
-import { cellForMoment, momentForCell, slotAtMoment } from '../lib/trades'
+import { cellForMoment, momentForCell, slotAtMoment, type PickTrade } from '../lib/trades'
+import TradeBadge from './TradeBadge'
+import TradeAlert, { type TradeAlertRequest } from './TradeAlert'
+import { speakLine } from '../lib/speech'
 import { loadSettings, saveSettings } from '../lib/db'
 import type { HeadshotLookup } from '../lib/headshots'
 import DraftCard from './DraftCard'
@@ -146,6 +149,23 @@ function Display({
   const [queued, setQueued] = useState<AnnouncementRequest | null>(null)
   const seenPicks = useRef<Set<number> | null>(null)
 
+  /*
+   * The same trick for trades: remember which agreements have been seen, so a
+   * board opened mid-draft shows the board rather than replaying every trade.
+   */
+  const [tradeAlert, setTradeAlert] = useState<TradeAlertRequest | null>(null)
+  const seenTrades = useRef<Set<number> | null>(null)
+
+  useEffect(() => {
+    const groups = new Set(session.trades.map((t, i) => t.group ?? i + 1))
+    const before = seenTrades.current
+    seenTrades.current = groups
+    if (!before) return
+    const fresh = [...groups].filter((g) => !before.has(g)).sort((a, b) => a - b).pop()
+    if (fresh === undefined) return
+    setTradeAlert({ group: fresh, session })
+  }, [session])
+
   useEffect(() => {
     const picks = new Set(
       session.players.filter((p) => p.draftedAtPick !== null).map((p) => p.draftedAtPick as number),
@@ -201,7 +221,8 @@ function Display({
             {onClockName}
           </span>
           <span className="text-[clamp(0.9rem,1.6vw,2rem)] leading-none font-bold text-stone-300 tabular-nums">
-            {overallToRoundPick(pick, session.leagueSize).label}
+            {/* The cell being filled, which after a trade is not the moment count. */}
+            {overallToRoundPick(clockCell, session.leagueSize).label}
           </span>
         </div>
 
@@ -240,6 +261,24 @@ function Display({
         </button>
       </header>
 
+      {tradeAlert && (
+        <TradeAlert
+          request={tradeAlert}
+          sound={funMode && soundReady}
+          speak={
+            funMode && settings.elevenLabsApiKey.trim()
+              ? (text) =>
+                  speakLine(
+                    text,
+                    settings.elevenLabsApiKey,
+                    settings.elevenLabsVoiceId,
+                  )
+              : null
+          }
+          onFinished={() => setTradeAlert(null)}
+        />
+      )}
+
       {queued && (
         <PickAnnouncement
           request={queued}
@@ -277,7 +316,8 @@ function Display({
               <Row
                 key={row[0].round}
                 row={row}
-                pick={pick}
+                clockCell={clockCell}
+                trades={session.trades}
                 faces={faces}
                 leagueSize={session.leagueSize}
                 isCurrentRound={isCurrentRound}
@@ -294,16 +334,18 @@ function Display({
 
 function Row({
   row,
-  pick,
   faces,
   leagueSize,
   isCurrentRound,
   rowRef,
+  clockCell,
+  trades,
 }: {
   row: GridCell[]
-  pick: number
+  clockCell: number
   faces: HeadshotLookup | null
   leagueSize: number
+  trades: PickTrade[]
   isCurrentRound: boolean
   rowRef?: React.Ref<HTMLDivElement>
 }) {
@@ -318,7 +360,14 @@ function Row({
         {row[0].round}
       </div>
       {row.map((cell) => (
-        <Cell key={cell.pick} cell={cell} pick={pick} faces={faces} leagueSize={leagueSize} />
+        <Cell
+          key={cell.pick}
+          cell={cell}
+          clockCell={clockCell}
+          faces={faces}
+          leagueSize={leagueSize}
+          trades={trades}
+        />
       ))}
     </>
   )
@@ -326,16 +375,19 @@ function Row({
 
 function Cell({
   cell,
-  pick,
+  clockCell,
   faces,
   leagueSize,
+  trades,
 }: {
   cell: GridCell
-  pick: number
+  /** The cell about to be filled — not the moment count, once picks are traded. */
+  clockCell: number
   faces: HeadshotLookup | null
   leagueSize: number
+  trades: PickTrade[]
 }) {
-  const onTheClock = cell.pick === pick
+  const onTheClock = cell.pick === clockCell
   const player: Player | null = cell.player
   /** This board labels picks as round.pick; the control window keeps whole numbers. */
   const label = overallToRoundPick(cell.pick, leagueSize).label
@@ -349,14 +401,28 @@ function Cell({
             : 'bg-stone-100 text-[clamp(0.6rem,0.85vw,1rem)] text-stone-400'
         }`}
       >
-        {label}
+        <span className="flex flex-col items-center gap-[0.2em]">
+          {label}
+          {/* Shown on the cell on the clock too: all four picks of a trade carry
+              the mark, which is the point of numbering them. */}
+          <span
+            className={`flex text-[0.62em] ${onTheClock ? 'text-amber-950' : 'text-stone-500'}`}
+          >
+            <TradeBadge cell={cell.pick} trades={trades} leagueSize={leagueSize} roundDotPick />
+          </span>
+        </span>
       </div>
     )
   }
 
   return (
     <div className="min-h-[7.6vh] text-[clamp(0.55rem,0.82vw,1.05rem)]">
-      <DraftCard player={player} pickLabel={label} faces={faces} />
+      <DraftCard
+        player={player}
+        pickLabel={label}
+        faces={faces}
+        note={<TradeBadge cell={cell.pick} trades={trades} leagueSize={leagueSize} roundDotPick />}
+      />
     </div>
   )
 }
