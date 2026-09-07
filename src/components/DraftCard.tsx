@@ -74,16 +74,15 @@ export default function DraftCard({
         </div>
 
         <div className="text-[0.8em] font-bold tracking-wide uppercase opacity-85">
-          {/* The trade mark sits between the name and the club, on its own line:
-              sharing the club's line left the club truncated, and the club is the
-              more useful of the two. */}
-          {note && <div className="mb-[0.12em] flex text-[0.86em]">{note}</div>}
           <div className="flex items-baseline gap-[0.3em]">
             <span className="truncate">
               {player.position}-{player.team}
             </span>
             {flagged && <span className="font-black text-amber-200">!</span>}
           </div>
+          {/* The trade mark goes last, on its own line: sharing the club's line
+              left the club truncated, and the club is the more useful of the two. */}
+          {note && <div className="mt-[0.12em] flex text-[0.86em]">{note}</div>}
         </div>
       </div>
     </div>
