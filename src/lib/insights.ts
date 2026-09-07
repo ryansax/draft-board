@@ -8,7 +8,6 @@ import {
 } from '../types'
 import { pickForRound } from './adp'
 import { bestAtPosition, draftRounds, isMarked, rosterSlotList, tierKey, tierStates } from './draft'
-import { slotAtMoment } from './trades'
 
 // ---------------------------------------------------------------------------
 // Snake geometry: overall pick <-> (round, slot)
@@ -122,51 +121,6 @@ export function unmetNeeds(roster: Player[], config: RosterConfig): Position[] {
     }
   }
   return needs
-}
-
-export interface PositionPressure {
-  position: Position
-  /** How many of the managers picking before me still need this position. */
-  managersNeeding: number
-  /** Players left at this position that the market rates inside the coming window. */
-  likelyGone: number
-}
-
-/**
- * What the managers picking between now and my next selection are likely to take.
- * This is the payoff for knowing who sits in which slot.
- */
-export function pressureBeforeMyPick(
-  session: Session,
-  currentPick: number,
-  myNextPick: number | null,
-): PositionPressure[] {
-  if (myNextPick === null || myNextPick <= currentPick) return []
-  const rosters = managerRosters(session)
-  const counts = new Map<Position, number>()
-
-  // Walk moments, not cells: after a trade the manager choosing at a moment is
-  // whoever now owns the cell it fills.
-  for (let moment = currentPick; moment < myNextPick; moment++) {
-    const slot = slotAtMoment(moment, session)
-    if (slot === session.draftSlot) continue
-    const needs = new Set(unmetNeeds(rosters.get(slot) ?? [], session.rosterConfig))
-    for (const position of needs) counts.set(position, (counts.get(position) ?? 0) + 1)
-  }
-
-  return [...counts.entries()]
-    .map(([position, managersNeeding]) => ({
-      position,
-      managersNeeding,
-      likelyGone: session.players.filter(
-        (p) =>
-          p.position === position &&
-          !isMarked(p) &&
-          p.adpOverall !== null &&
-          p.adpOverall < myNextPick,
-      ).length,
-    }))
-    .sort((a, b) => b.managersNeeding - a.managersNeeding || b.likelyGone - a.likelyGone)
 }
 
 // ---------------------------------------------------------------------------

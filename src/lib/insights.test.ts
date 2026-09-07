@@ -5,7 +5,6 @@ import {
   statusForTap,
   managerRosters,
   nextPickAfter,
-  pressureBeforeMyPick,
   recommendPicks,
   roundForPick,
   slotForPick,
@@ -149,28 +148,6 @@ describe('unmet needs', () => {
     const needs = unmetNeeds(roster, DEFAULT_ROSTER)
     expect(needs).not.toContain('RB')
     expect(needs).not.toContain('WR')
-  })
-})
-
-describe('pressure before my pick', () => {
-  it('counts how many managers ahead of me still need each position', () => {
-    const s = session([], { leagueSize: 10, draftSlot: 3 })
-    // Nobody has drafted, so every manager between picks 4 and 17 needs everything.
-    const pressure = pressureBeforeMyPick(s, 4, 18)
-    expect(pressure.length).toBeGreaterThan(0)
-    const qb = pressure.find((p) => p.position === 'QB')!
-    expect(qb.managersNeeding).toBe(14) // picks 4..17 inclusive, none of them mine
-  })
-
-  it('skips my own slot', () => {
-    const s = session([], { leagueSize: 10, draftSlot: 3 })
-    const pressure = pressureBeforeMyPick(s, 3, 18)
-    expect(pressure.find((p) => p.position === 'QB')!.managersNeeding).toBe(14)
-  })
-
-  it('is empty when I am on the clock', () => {
-    expect(pressureBeforeMyPick(session([]), 18, 18)).toEqual([])
-    expect(pressureBeforeMyPick(session([]), 18, null)).toEqual([])
   })
 })
 

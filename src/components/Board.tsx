@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, ArrowLeftRight, Flame, LayoutGrid, MonitorPlay, Settings, Undo2, UserPlus, Users, X } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight, LayoutGrid, MonitorPlay, Settings, Undo2, UserPlus, Users, X } from 'lucide-react'
 import { useSessionStore } from '../store/session'
 import {
   BADGES,
@@ -17,7 +17,6 @@ import {
   bestAvailable,
   currentPick as computeCurrentPick,
   sortPlayers,
-  tierKey,
   tierStates,
 } from '../lib/draft'
 import { isMyTurn } from '../lib/insights'
@@ -54,7 +53,6 @@ export default function Board({
     tapPlayer,
     undo,
     nudgePickOffset,
-    dismissTierAlert,
     setManagerName,
     tradePicks,
     setPickAt,
@@ -76,27 +74,6 @@ export default function Board({
   const [view, setView] = useState<View>('sheet')
   const [offBoardOpen, setOffBoardOpen] = useState(false)
 
-  /**
-   * Anything landing on my roster gets confirmed out loud. A mis-tap on the ME
-   * strip, a drifted pick counter or a stray search Enter would otherwise add a
-   * player silently, and a wrong roster quietly poisons the needs and the
-   * recommendations. Stays up until dismissed or superseded.
-   */
-  const [justAddedId, setJustAddedId] = useState<string | null>(null)
-  const previousMine = useRef<Set<string> | null>(null)
-
-  useEffect(() => {
-    if (!session) return
-    const mine = new Set(
-      session.players.filter((p) => p.status === 'mine').map((p) => p.id),
-    )
-    const before = previousMine.current
-    if (before) {
-      const added = [...mine].find((id) => !before.has(id))
-      if (added) setJustAddedId(added)
-    }
-    previousMine.current = mine
-  }, [session])
   const searchRef = useRef<HTMLInputElement>(null)
 
   /**
@@ -115,11 +92,9 @@ export default function Board({
     [markPlayer],
   )
 
+  /** Fixing a roster entry from the panel; the board cell editor does the rest. */
   const correctRoster = useCallback(
-    (playerId: string, status: PlayerStatus) => {
-      markPlayer(playerId, status)
-      setJustAddedId((current) => (current === playerId ? null : current))
-    },
+    (playerId: string, status: PlayerStatus) => markPlayer(playerId, status),
     [markPlayer],
   )
 
@@ -214,14 +189,6 @@ export default function Board({
    */
   const columns: Position[] =
     positionFilter !== 'ALL' ? [positionFilter] : isWide ? [...SKILL_POSITIONS] : ['RB']
-
-  const justAdded: Player | null =
-    (justAddedId && session.players.find((p) => p.id === justAddedId && p.status === 'mine')) || null
-
-  // Section 7.5: a tier run is worth interrupting for.
-  const tierAlerts = [...derived.tiers.values()]
-    .filter((t) => t.scarce && t.remaining < t.total && !session.dismissedTierAlerts.includes(tierKey(t.position, t.tier)))
-    .slice(0, 3)
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -566,58 +533,6 @@ export default function Board({
         <OffBoardDialog onAdd={addOffBoardPlayer} onClose={() => setOffBoardOpen(false)} />
       )}
 
-      {/* Confirmation of anything added to my roster */}
-      {justAdded && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-3 z-50 flex justify-center px-3">
-          <div className="pointer-events-auto flex max-w-lg items-center gap-2 rounded-lg border border-emerald-500 bg-emerald-600 py-2 pr-1 pl-3 text-sm text-white shadow-xl">
-            <Users size={16} className="shrink-0" />
-            <span className="min-w-0">
-              Added to <strong>your roster</strong>: {justAdded.name}
-              {justAdded.draftedAtPick !== null && (
-                <span className="opacity-80"> at pick {justAdded.draftedAtPick}</span>
-              )}
-            </span>
-            <Button
-              variant="ghost"
-              className="!min-h-9 shrink-0 border border-white/40 !px-2 text-xs !text-white hover:bg-white/20"
-              onClick={() => correctRoster(justAdded.id, 'drafted')}
-            >
-              Not mine
-            </Button>
-            <button
-              onClick={() => setJustAddedId(null)}
-              aria-label="Dismiss"
-              className="tap-target flex w-11 shrink-0 items-center justify-center rounded hover:bg-white/20"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Tier-run toasts */}
-      {tierAlerts.length > 0 && (
-        <div className="pointer-events-none fixed bottom-3 left-3 z-50 flex flex-col gap-2">
-          {tierAlerts.map((tier) => (
-            <div
-              key={tierKey(tier.position, tier.tier)}
-              className="pointer-events-auto flex items-center gap-2 rounded-lg bg-orange-600 py-2 pr-1 pl-3 text-sm font-semibold text-white shadow-lg"
-            >
-              <Flame size={16} />
-              <span>
-                {tier.position} Tier {tier.tier} is almost empty — {tier.remaining} left
-              </span>
-              <button
-                onClick={() => dismissTierAlert(tierKey(tier.position, tier.tier))}
-                aria-label="Dismiss"
-                className="tap-target flex w-11 items-center justify-center rounded hover:bg-white/20"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
