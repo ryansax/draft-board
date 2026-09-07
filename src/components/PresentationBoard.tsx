@@ -23,6 +23,8 @@ import { audioBlocked, unlockAudio } from '../lib/sting'
 const RESYNC_MS = 4000
 /** How long a viewer's own scrolling stops the board following the draft. */
 const MANUAL_SCROLL_QUIET_MS = 20_000
+/** Beyond this the backlog is dropped for the newest: a burst is catching up. */
+const MAX_QUEUED_ANNOUNCEMENTS = 2
 
 /**
  * A read-only board for a second screen, sized to be read across a room. It owns
@@ -162,12 +164,11 @@ function Display({
   // The analyst needs current rosters whether or not faces are switched on.
   const squad = useSquadFacts(settings.pickAnalysis && Boolean(settings.anthropicApiKey))
   /*
-   * A watcher gets fun mode as well, on their own machine and off until they turn
-   * it on: eight laptops announcing in unison is a choice the room should make
-   * one at a time. With no ElevenLabs key of their own it falls back to the
-   * browser voice, which needs nothing.
+   * Fun mode belongs to the room's television. A watcher has neither the voices
+   * nor the analyst — those need keys that stay on the host's machine — and the
+   * browser-voice half of it is worse than not offering it at all.
    */
-  const [funMode, setFunMode] = useState(settings.funMode)
+  const [funMode, setFunMode] = useState(settings.funMode && !viewOnly)
   const [tab, setTab] = useState<'board' | 'totals'>('board')
   const [soundReady, setSoundReady] = useState(false)
 
@@ -189,7 +190,19 @@ function Display({
    * Watch for a newly logged pick and queue its announcement. Comparing against the
    * previous render means the very first load never announces a backlog.
    */
-  const [queued, setQueued] = useState<AnnouncementRequest | null>(null)
+  /*
+   * Announcements queue rather than replace one another.
+   *
+   * They used to be a single slot, so a pick logged while one was still running
+   * swapped the request out, tore the effect down and stopped whatever was
+   * playing. The analyst's take is the last thing in the sequence, so it was
+   * exactly what got cut off — which is what made it look intermittent.
+   *
+   * A backlog is capped: several picks arriving at once means somebody is
+   * catching up, and the room wants the latest, not a recital of the last five.
+   */
+  const [queue, setQueue] = useState<AnnouncementRequest[]>([])
+  const queued = queue[0] ?? null
   const seenPicks = useRef<Set<number> | null>(null)
 
   /*
@@ -228,7 +241,7 @@ function Display({
     // the following selection may belong to a completely different column.
     const nextMoment = momentForCell(fresh, session.trades) + 1
     const nextSlot = slotAtMoment(nextMoment, session)
-    setQueued({
+    const request: AnnouncementRequest = {
       player,
       managerName: session.managers[slot - 1] ?? `Team ${slot}`,
       round: roundForPick(fresh, session.leagueSize),
@@ -239,6 +252,10 @@ function Display({
         nextMoment <= rounds * session.leagueSize
           ? (session.managers[nextSlot - 1] ?? `Team ${nextSlot}`)
           : null,
+    }
+    setQueue((waiting) => {
+      const next = [...waiting, request]
+      return next.length > MAX_QUEUED_ANNOUNCEMENTS ? next.slice(-1) : next
     })
   }, [session, funMode, rounds])
 
@@ -269,6 +286,7 @@ function Display({
           </span>
         </div>
 
+        {!viewOnly && (
         <button
           onClick={() => {
             const next = !funMode
@@ -288,8 +306,9 @@ function Display({
         >
           {funMode ? <Volume2 size={20} /> : <VolumeX size={20} />}
         </button>
+        )}
 
-        {funMode && !soundReady && audioBlocked() && (
+        {!viewOnly && funMode && !soundReady && audioBlocked() && (
           <span className="shrink-0 rounded-lg bg-amber-100 px-[0.8vw] py-[0.6vh] text-[clamp(0.55rem,0.75vw,0.9rem)] font-semibold text-amber-900">
             Click anywhere to enable sound
           </span>
@@ -331,7 +350,7 @@ function Display({
           voiceId={settings.elevenLabsVoiceId}
           analystVoiceId={settings.elevenLabsAnalystVoiceId}
           analysisKey={settings.pickAnalysis ? settings.anthropicApiKey : ''}
-          onFinished={() => setQueued(null)}
+          onFinished={() => setQueue((waiting) => waiting.slice(1))}
         />
       )}
 
