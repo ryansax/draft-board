@@ -20,6 +20,8 @@ import { audioBlocked, unlockAudio } from '../lib/sting'
 
 /** Re-read from IndexedDB this often, in case a broadcast was missed. */
 const RESYNC_MS = 4000
+/** How long a viewer's own scrolling stops the board following the draft. */
+const MANUAL_SCROLL_QUIET_MS = 20_000
 
 /**
  * A read-only board for a second screen, sized to be read across a room. It owns
@@ -30,12 +32,25 @@ const RESYNC_MS = 4000
  * highlighted column, no ringed picks and no coloured on-the-clock banner. Those
  * cues belong in the control window, where they are the point.
  */
-export default function PresentationBoard({ sessionId }: { sessionId: string }) {
-  const [session, setSession] = useState<Session | null>(null)
+export default function PresentationBoard({
+  sessionId,
+  externalSession,
+  viewOnly = false,
+}: {
+  /** Load this draft from local storage and follow it over the channel. */
+  sessionId?: string
+  /** Already-loaded board, for a watcher reading someone else's draft. */
+  externalSession?: Session | null
+  /** No announcements and no sound: this is a laptop, not the room's television. */
+  viewOnly?: boolean
+}) {
+  const [session, setSession] = useState<Session | null>(externalSession ?? null)
   const [missing, setMissing] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
 
   useEffect(() => {
+    // A watched board arrives over the network instead; nothing to load or follow.
+    if (!sessionId) return
     let cancelled = false
     const load = async () => {
       const found = await getSession(sessionId)
@@ -61,6 +76,11 @@ export default function PresentationBoard({ sessionId }: { sessionId: string }) 
       window.clearInterval(timer)
     }
   }, [sessionId])
+
+  // A watcher's board is replaced wholesale each time one arrives.
+  useEffect(() => {
+    if (externalSession) setSession(externalSession)
+  }, [externalSession])
 
   useEffect(() => {
     const onChange = () => setFullscreen(Boolean(document.fullscreenElement))
@@ -89,7 +109,7 @@ export default function PresentationBoard({ sessionId }: { sessionId: string }) 
     )
   }
 
-  return <Display session={session} fullscreen={fullscreen} onToggleFullscreen={() => {
+  return <Display session={session} viewOnly={viewOnly} fullscreen={fullscreen} onToggleFullscreen={() => {
     if (document.fullscreenElement) void document.exitFullscreen()
     else void document.documentElement.requestFullscreen().catch(() => {})
   }} />
@@ -97,10 +117,12 @@ export default function PresentationBoard({ sessionId }: { sessionId: string }) 
 
 function Display({
   session,
+  viewOnly,
   fullscreen,
   onToggleFullscreen,
 }: {
   session: Session
+  viewOnly: boolean
   fullscreen: boolean
   onToggleFullscreen: () => void
 }) {
@@ -115,9 +137,22 @@ function Display({
   const onClockName = session.managers[onClockSlot - 1] ?? `Team ${onClockSlot}`
 
   const currentRow = useRef<HTMLDivElement>(null)
+  const scroller = useRef<HTMLDivElement>(null)
+  /**
+   * A television is unattended and should always follow the draft. A watcher is
+   * not: they scroll back to round one to count somebody's backs, and yanking them
+   * to the current round on the next pick makes that impossible. So a manual
+   * scroll buys quiet, and it lapses so a viewer who wandered off catches up again.
+   */
+  const scrolledAt = useRef(0)
   useEffect(() => {
+    if (!viewOnly) {
+      currentRow.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      return
+    }
+    if (Date.now() - scrolledAt.current < MANUAL_SCROLL_QUIET_MS) return
     currentRow.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }, [round])
+  }, [round, viewOnly])
 
   const totalPicks = rounds * session.leagueSize
   const made = session.players.filter((p) => p.draftedAtPick !== null).length
@@ -125,7 +160,7 @@ function Display({
   const faces = usePlayerImages(settings.playerImages)
   // The analyst needs current rosters whether or not faces are switched on.
   const squad = useSquadFacts(settings.pickAnalysis && Boolean(settings.anthropicApiKey))
-  const [funMode, setFunMode] = useState(settings.funMode)
+  const [funMode, setFunMode] = useState(settings.funMode && !viewOnly)
   const [soundReady, setSoundReady] = useState(false)
 
   /** Browsers need a gesture before audio is allowed; any click on the board counts. */
@@ -226,6 +261,9 @@ function Display({
           </span>
         </div>
 
+        {/* Announcements belong to the room's television. A watcher gets the board
+            and nothing that makes noise, so the control is not offered at all. */}
+        {!viewOnly && (
         <button
           onClick={() => {
             const next = !funMode
@@ -245,8 +283,9 @@ function Display({
         >
           {funMode ? <Volume2 size={20} /> : <VolumeX size={20} />}
         </button>
+        )}
 
-        {funMode && !soundReady && audioBlocked() && (
+        {!viewOnly && funMode && !soundReady && audioBlocked() && (
           <span className="shrink-0 rounded-lg bg-amber-100 px-[0.8vw] py-[0.6vh] text-[clamp(0.55rem,0.75vw,0.9rem)] font-semibold text-amber-900">
             Click anywhere to enable sound
           </span>
@@ -293,7 +332,13 @@ function Display({
       )}
 
       {/* The board */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-[1vw] py-[1vh]">
+      <div
+        ref={scroller}
+        onWheel={() => (scrolledAt.current = Date.now())}
+        onTouchMove={() => (scrolledAt.current = Date.now())}
+        onKeyDown={() => (scrolledAt.current = Date.now())}
+        className="min-h-0 flex-1 overflow-y-auto px-[1vw] py-[1vh]"
+      >
         <div
           className="grid gap-[0.35vw]"
           style={{ gridTemplateColumns: `2.6vw repeat(${session.leagueSize}, minmax(0, 1fr))` }}

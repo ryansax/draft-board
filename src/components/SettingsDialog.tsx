@@ -120,6 +120,28 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
           </p>
         </Section>
 
+        <Section>
+          <Field
+            label="Project URL"
+            placeholder="https://xxxx.supabase.co"
+            value={settings.supabaseUrl}
+            onChange={(v) => setSettings({ supabaseUrl: v })}
+            hint="Where a shared board is published so friends can watch it from their own machines."
+          />
+          <Field
+            label="Anon public key"
+            type="password"
+            placeholder="eyJ…"
+            value={settings.supabaseAnonKey}
+            onChange={(v) => setSettings({ supabaseAnonKey: v })}
+            hint="Safe to share: it can read boards and nothing else. Publishing needs a separate key that stays on this machine."
+          />
+          <p className="mt-1.5 text-xs text-stone-500 dark:text-stone-400">
+            Only made picks, managers and trades are published. Your rankings, tiers, risk and
+            upside never leave this browser.
+          </p>
+        </Section>
+
         <p className="mt-4 text-xs text-stone-500 dark:text-stone-400">
           Drafts are stored locally in this browser. No account, no server.
         </p>

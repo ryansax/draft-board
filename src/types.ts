@@ -127,6 +127,10 @@ export interface Session {
   pickOffset: number
   /** Picks swapped mid-draft. Empty for a draft where nobody traded. */
   trades: PickTrade[]
+  /** Board id friends watch, once this draft has been shared. */
+  shareId?: string
+  /** The key that proves a publish is mine. Never leaves this machine. */
+  shareSecret?: string
   /** Tier-run toasts already dismissed, keyed `${position}:${tier}`. */
   dismissedTierAlerts: string[]
 }
@@ -155,6 +159,10 @@ export interface AppSettings {
   elevenLabsAnalystVoiceId: string
   aiParseEnabled: boolean
   anthropicApiKey: string
+  /** Supabase project that holds shared boards. Blank means sharing is off. */
+  supabaseUrl: string
+  /** The anon public key. Read-only by policy, so it is safe in the link. */
+  supabaseAnonKey: string
   hideDrafted: boolean
   sortMode: SortMode
 }
@@ -169,6 +177,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   elevenLabsAnalystVoiceId: '',
   aiParseEnabled: false,
   anthropicApiKey: '',
+  supabaseUrl: '',
+  supabaseAnonKey: '',
   hideDrafted: false,
   sortMode: 'rank',
 }

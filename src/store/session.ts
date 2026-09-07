@@ -17,6 +17,7 @@ import { newId } from '../lib/id'
 import { currentPick, isMarked } from '../lib/draft'
 import { isMyTurn, slotForPick, statusForTap } from '../lib/insights'
 import { cellForMoment, nextTradeGroup, swapNextPicks } from '../lib/trades'
+import { randomToken } from '../lib/share'
 import type { ParsedSheet } from '../lib/parser/types'
 
 /** Section 6: "stack of at least 20 actions". */
@@ -128,6 +129,8 @@ interface SessionState {
    * Swap two managers' next `count` selections, as agreed out loud at the table.
    * Only upcoming picks move, so the board behind the clock is never rewritten.
    */
+  /** Claim a board id for this draft, or drop it. The key never leaves here. */
+  setSharing: (on: boolean) => void
   tradePicks: (slotA: number, slotB: number, count: number) => void
   /** Take back the most recent trade. */
   undoLastTrade: () => void
@@ -361,6 +364,18 @@ export const useSessionStore = create<SessionState>((set, get) => {
           pickOffset,
           undoStack: [...session.undoStack, entry].slice(-UNDO_LIMIT),
         }
+      })
+    },
+
+    setSharing(on) {
+      commit((session) => {
+        if (!on) {
+          if (!session.shareId) return null
+          return { ...session, shareId: undefined, shareSecret: undefined }
+        }
+        if (session.shareId && session.shareSecret) return null
+        // Long enough that a board id is not guessable by someone idly trying.
+        return { ...session, shareId: randomToken(10), shareSecret: randomToken(24) }
       })
     },
 

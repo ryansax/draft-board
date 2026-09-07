@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, ArrowLeftRight, LayoutGrid, MonitorPlay, Settings, Undo2, UserPlus, Users, X } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight, LayoutGrid, Link2, MonitorPlay, Settings, Undo2, UserPlus, Users, X } from 'lucide-react'
 import { useSessionStore } from '../store/session'
 import {
   BADGES,
@@ -24,6 +24,8 @@ import { nextPickAtOrAfter } from '../lib/adp'
 import { cellForMoment, momentsForSlot, nextTradeGroup } from '../lib/trades'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import TradeDialog from './TradeDialog'
+import ShareDialog from './ShareDialog'
+import { usePublishBoard } from '../lib/usePublishBoard'
 import PickEditorDialog from './PickEditorDialog'
 import PositionColumn from './PositionColumn'
 import PickStrip from './PickStrip'
@@ -55,6 +57,7 @@ export default function Board({
     nudgePickOffset,
     setManagerName,
     tradePicks,
+    setSharing,
     setPickAt,
     undoLastTrade,
     addOffBoardPlayer,
@@ -133,6 +136,14 @@ export default function Board({
 
   const [trading, setTrading] = useState(false)
   const [editingCell, setEditingCell] = useState<number | null>(null)
+  const [sharing, setSharingOpen] = useState(false)
+
+  /** Publishing runs off the live session, so it keeps up without being told to. */
+  const shareConfig = useMemo(
+    () => ({ url: settings.supabaseUrl, anonKey: settings.supabaseAnonKey }),
+    [settings.supabaseUrl, settings.supabaseAnonKey],
+  )
+  const publish = usePublishBoard(session, shareConfig)
   const tradeCount = session ? nextTradeGroup(session.trades) - 1 : 0
 
   const derived = useMemo(() => {
@@ -432,12 +443,29 @@ export default function Board({
                 <Button onClick={() => setTrading(true)} className="px-3">
                   <ArrowLeftRight size={16} /> Trade picks
                 </Button>
+                <Button onClick={() => setSharingOpen(true)} className="px-3">
+                  <Link2 size={16} /> {session.shareId ? 'Sharing' : 'Share board'}
+                </Button>
                 <span className="text-xs text-stone-500 dark:text-stone-400">
                   {tradeCount > 0
                     ? `${tradeCount} ${tradeCount === 1 ? 'trade' : 'trades'} in effect.`
                     : 'Opens a read-only board for the room. It follows your picks live.'}
                 </span>
               </div>
+              {sharing && (
+                <ShareDialog
+                  session={session}
+                  config={shareConfig}
+                  state={publish.state}
+                  error={publish.error}
+                  onStartSharing={() => setSharing(true)}
+                  onStopSharing={() => {
+                    setSharing(false)
+                    setSharingOpen(false)
+                  }}
+                  onClose={() => setSharingOpen(false)}
+                />
+              )}
               {trading && (
                 <TradeDialog
                   session={session}

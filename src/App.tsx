@@ -5,9 +5,12 @@ import ImportFlow from './components/ImportFlow'
 import Board from './components/Board'
 import SettingsDialog from './components/SettingsDialog'
 import PresentationBoard from './components/PresentationBoard'
+import WatchBoard from './components/WatchBoard'
 
 /** `#/present/<sessionId>` opens the read-only room display in its own window. */
 const PRESENT_ROUTE = /^#\/present\/(.+)$/
+/** `#/watch/<boardId>` follows a board somebody else is publishing. */
+const WATCH_ROUTE = /^#\/watch\/(.+)$/
 
 type Route = 'home' | 'import'
 
@@ -29,17 +32,29 @@ export default function App() {
     return match ? decodeURIComponent(match[1]) : null
   })()
 
+  const watchingBoardId = (() => {
+    const match = WATCH_ROUTE.exec(hash)
+    return match ? decodeURIComponent(match[1]) : null
+  })()
+
   useEffect(() => {
-    // The presentation window loads its own session; it must not adopt the
-    // control window's active draft or write anything back.
-    if (!presentingSessionId) void init()
-  }, [init, presentingSessionId])
+    // Neither the presentation window nor a watcher adopts the control window's
+    // active draft, and neither writes anything back.
+    if (!presentingSessionId && !watchingBoardId) void init()
+  }, [init, presentingSessionId, watchingBoardId])
 
   useEffect(() => {
     // The room display is always light — it goes on a TV in daylight, where a dark
     // screen mirrors the room. It must not inherit the control window's theme.
-    document.documentElement.classList.toggle('dark', settings.darkMode && !presentingSessionId)
-  }, [settings.darkMode, presentingSessionId])
+    document.documentElement.classList.toggle(
+      'dark',
+      settings.darkMode && !presentingSessionId && !watchingBoardId,
+    )
+  }, [settings.darkMode, presentingSessionId, watchingBoardId])
+
+  if (watchingBoardId) {
+    return <WatchBoard boardId={watchingBoardId} />
+  }
 
   if (presentingSessionId) {
     return <PresentationBoard sessionId={presentingSessionId} />
