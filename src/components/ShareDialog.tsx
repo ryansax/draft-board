@@ -32,7 +32,7 @@ export default function ShareDialog({
 }) {
   const [copied, setCopied] = useState(false)
   const configured = shareConfigured(config)
-  const link = session.shareId ? watchUrl(session.shareId) : null
+  const link = session.shareId ? watchUrl(session.shareId, config) : null
 
   return (
     <div
@@ -124,8 +124,9 @@ export default function ShareDialog({
             </p>
 
             <p className="mt-3 text-[11px] text-stone-500 dark:text-stone-400">
-              Viewers cannot change anything: publishing needs a key that stays on this
-              machine, and the link carries no way to write.
+              The link carries everything a viewer needs, so nobody has to set anything up —
+              they just open it. It cannot change the board: publishing needs a key that
+              stays on this machine.
             </p>
 
             <div className="mt-4 flex justify-between">

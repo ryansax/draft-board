@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import type { Player, Position, RosterConfig, Session } from '../types'
-import { boardToSession, projectBoard, randomToken, shareConfigured } from './share'
+import {
+  boardToSession,
+  decodeConfig,
+  encodeConfig,
+  parseWatchTarget,
+  projectBoard,
+  randomToken,
+  shareConfigured,
+} from './share'
 import { currentPick } from './draft'
 
 const ROSTER: RosterConfig = { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, DST: 1, K: 1, BN: 6 }
@@ -139,5 +147,34 @@ describe('the link and the keys', () => {
   it('does not hand out the same id twice', () => {
     const seen = new Set(Array.from({ length: 200 }, () => randomToken(10)))
     expect(seen.size).toBe(200)
+  })
+})
+
+describe('the link a friend receives', () => {
+  const config = { url: 'https://abc.supabase.co', anonKey: 'sb_publishable_xyz-123_ABC' }
+
+  it('carries the connection, so nothing has to be set up to read it', () => {
+    const encoded = encodeConfig(config)
+    expect(decodeConfig(encoded)).toEqual(config)
+  })
+
+  it('survives being pasted into a chat window', () => {
+    // Base64url only: no +, / or = to be mangled or line-wrapped.
+    expect(encodeConfig(config)).toMatch(/^[A-Za-z0-9_-]+$/)
+  })
+
+  it('splits back into the board and the connection', () => {
+    const target = `board123?c=${encodeConfig(config)}`
+    expect(parseWatchTarget(target)).toEqual({ boardId: 'board123', config })
+  })
+
+  it('still reads a bare board id, for a link made before this existed', () => {
+    expect(parseWatchTarget('board123')).toEqual({ boardId: 'board123', config: null })
+  })
+
+  it('refuses a mangled connection rather than half-using it', () => {
+    expect(decodeConfig('not-base64-at-all!!')).toBeNull()
+    expect(decodeConfig(btoa('{"u":"only-a-url"}'))).toBeNull()
+    expect(parseWatchTarget('board123?c=rubbish').config).toBeNull()
   })
 })

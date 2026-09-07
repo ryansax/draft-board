@@ -6,6 +6,7 @@ import Board from './components/Board'
 import SettingsDialog from './components/SettingsDialog'
 import PresentationBoard from './components/PresentationBoard'
 import WatchBoard from './components/WatchBoard'
+import { parseWatchTarget } from './lib/share'
 
 /** `#/present/<sessionId>` opens the read-only room display in its own window. */
 const PRESENT_ROUTE = /^#\/present\/(.+)$/
@@ -32,10 +33,11 @@ export default function App() {
     return match ? decodeURIComponent(match[1]) : null
   })()
 
-  const watchingBoardId = (() => {
+  const watching = (() => {
     const match = WATCH_ROUTE.exec(hash)
-    return match ? decodeURIComponent(match[1]) : null
+    return match ? parseWatchTarget(match[1]) : null
   })()
+  const watchingBoardId = watching?.boardId ?? null
 
   useEffect(() => {
     // Neither the presentation window nor a watcher adopts the control window's
@@ -52,8 +54,8 @@ export default function App() {
     )
   }, [settings.darkMode, presentingSessionId, watchingBoardId])
 
-  if (watchingBoardId) {
-    return <WatchBoard boardId={watchingBoardId} />
+  if (watching) {
+    return <WatchBoard boardId={watching.boardId} linkConfig={watching.config} />
   }
 
   if (presentingSessionId) {

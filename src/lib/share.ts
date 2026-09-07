@@ -180,8 +180,41 @@ export function randomToken(length: number): string {
   return [...bytes].map((b) => ALPHABET[b % ALPHABET.length]).join('')
 }
 
-/** The link a viewer opens. Same app, watching rather than drafting. */
-export function watchUrl(boardId: string): string {
+/**
+ * The link a viewer opens.
+ *
+ * It carries the connection as well as the board id, because a friend opening a
+ * link has never been near this app's settings and should not have to be. The key
+ * inside is the publishable one: read-only by policy, so a link is exactly as
+ * powerful as the board it points at and no more.
+ */
+export function watchUrl(boardId: string, config: ShareConfig): string {
   const { origin, pathname } = window.location
-  return `${origin}${pathname}#/watch/${encodeURIComponent(boardId)}`
+  return `${origin}${pathname}#/watch/${encodeURIComponent(boardId)}?c=${encodeConfig(config)}`
+}
+
+/** Pack the connection into something that survives a paste into a chat window. */
+export function encodeConfig(config: ShareConfig): string {
+  const json = JSON.stringify({ u: config.url.trim(), k: config.anonKey.trim() })
+  return btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+export function decodeConfig(encoded: string): ShareConfig | null {
+  try {
+    const padded = encoded.replace(/-/g, '+').replace(/_/g, '/')
+    const parsed = JSON.parse(atob(padded)) as { u?: unknown; k?: unknown }
+    if (typeof parsed.u !== 'string' || typeof parsed.k !== 'string') return null
+    return { url: parsed.u, anonKey: parsed.k }
+  } catch {
+    return null
+  }
+}
+
+/** Split `<boardId>?c=<connection>` back into its parts. */
+export function parseWatchTarget(raw: string): { boardId: string; config: ShareConfig | null } {
+  const [id, query] = raw.split('?c=')
+  return {
+    boardId: decodeURIComponent(id),
+    config: query ? decodeConfig(query) : null,
+  }
 }
