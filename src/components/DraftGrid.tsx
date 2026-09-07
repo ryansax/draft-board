@@ -12,11 +12,12 @@ interface Props {
   session: Session
   /** The cell about to be filled. After a trade this is not the moment count. */
   clockCell: number
+  onEditPick: (cell: number) => void
   onRenameManager: (slot: number, name: string) => void
 }
 
 /** The whole draft, round by round, colour-coded by position. */
-export default function DraftGrid({ session, clockCell, onRenameManager }: Props) {
+export default function DraftGrid({ session, clockCell, onEditPick, onRenameManager }: Props) {
   const grid = buildDraftGrid(session)
   const rosters = managerRosters(session)
   const [editing, setEditing] = useState<number | null>(null)
@@ -104,6 +105,7 @@ export default function DraftGrid({ session, clockCell, onRenameManager }: Props
                     clockCell={clockCell}
                     filledAt={momentForCell(cell.pick, session.trades)}
                     faces={faces}
+                    onEdit={onEditPick}
                   />
                 ))}
               </tr>
@@ -120,6 +122,7 @@ function Cell({
   clockCell,
   filledAt,
   faces,
+  onEdit,
 }: {
   cell: GridCell
   /** The cell about to be filled. After a trade this is not the moment count. */
@@ -127,6 +130,7 @@ function Cell({
   /** Which selection fills this cell. Differs from the cell only after a trade. */
   filledAt: number
   faces: HeadshotLookup | null
+  onEdit: (cell: number) => void
 }) {
   const onTheClock = cell.pick === clockCell
   const traded = filledAt !== cell.pick
@@ -140,7 +144,7 @@ function Cell({
   if (!player) {
     return (
       <td
-        className={`h-14 min-w-24 rounded px-1 text-center align-middle ${
+        className={`h-14 min-w-24 rounded p-0 text-center align-middle ${
           onTheClock
             ? 'bg-amber-200 ring-2 ring-amber-500 dark:bg-amber-900'
             : cell.isMine
@@ -148,13 +152,19 @@ function Cell({
               : 'bg-stone-100 dark:bg-stone-900'
         }`}
       >
-        <span
-          className={`text-[10px] tabular-nums ${
-            onTheClock ? 'font-bold text-amber-900 dark:text-amber-100' : 'text-stone-400'
-          }`}
+        <button
+          onClick={() => onEdit(cell.pick)}
+          title={`Pick ${cell.pick} — click to log a player here`}
+          className="h-14 w-full px-1"
         >
-          {onTheClock ? 'ON THE CLOCK' : traded ? `${cell.pick} → ${filledAt}` : cell.pick}
-        </span>
+          <span
+            className={`text-[10px] tabular-nums ${
+              onTheClock ? 'font-bold text-amber-900 dark:text-amber-100' : 'text-stone-400'
+            }`}
+          >
+            {onTheClock ? 'ON THE CLOCK' : traded ? `${cell.pick} → ${filledAt}` : cell.pick}
+          </span>
+        </button>
       </td>
     )
   }
@@ -162,7 +172,7 @@ function Cell({
   return (
     <td className="h-14 min-w-24 max-w-32 p-0 align-middle">
       {/* Same card as the room display, but picks stay whole numbers here. */}
-      <div className="h-14 text-[11px]">
+      <button onClick={() => onEdit(cell.pick)} className="block h-14 w-full text-[11px]">
         <DraftCard
           player={player}
           pickLabel={String(cell.pick)}
@@ -175,7 +185,7 @@ function Cell({
               : `Pick ${cell.pick} — ${player.name} (${player.position}${player.rank}, ${player.team})`
           }
         />
-      </div>
+      </button>
     </td>
   )
 }

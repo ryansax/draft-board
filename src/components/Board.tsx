@@ -25,6 +25,7 @@ import { nextPickAtOrAfter } from '../lib/adp'
 import { cellForMoment, momentsForSlot } from '../lib/trades'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import TradeDialog from './TradeDialog'
+import PickEditorDialog from './PickEditorDialog'
 import PositionColumn from './PositionColumn'
 import PickStrip from './PickStrip'
 import BestAvailableStrip from './BestAvailableStrip'
@@ -56,6 +57,7 @@ export default function Board({
     dismissTierAlert,
     setManagerName,
     tradePicks,
+    setPickAt,
     undoLastTrade,
     addOffBoardPlayer,
     settings,
@@ -155,6 +157,7 @@ export default function Board({
   }, [undo])
 
   const [trading, setTrading] = useState(false)
+  const [editingCell, setEditingCell] = useState<number | null>(null)
 
   const derived = useMemo(() => {
     if (!session) return null
@@ -476,9 +479,18 @@ export default function Board({
                   onClose={() => setTrading(false)}
                 />
               )}
+              {editingCell !== null && (
+                <PickEditorDialog
+                  session={session}
+                  cell={editingCell}
+                  onSet={setPickAt}
+                  onClose={() => setEditingCell(null)}
+                />
+              )}
               <DraftGrid
                 session={session}
                 clockCell={derived.cell}
+                onEditPick={setEditingCell}
                 onRenameManager={setManagerName}
               />
             </div>

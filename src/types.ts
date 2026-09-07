@@ -93,6 +93,18 @@ export interface UndoEntry {
   prevDraftedAtPick: number | null
   nextStatus: PlayerStatus
   at: number
+  /**
+   * Others changed by the same action. Correcting a pick moves two players —
+   * the one coming off the board and the one going on — and both come back
+   * together. Absent on entries written before board edits existed.
+   */
+  also?: Array<{
+    playerId: string
+    prevStatus: PlayerStatus
+    prevDraftedAtPick: number | null
+  }>
+  /** The counter before the action, when the action had to hold it steady. */
+  prevPickOffset?: number
 }
 
 export interface Session {

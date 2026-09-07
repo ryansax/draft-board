@@ -14,8 +14,8 @@ import {
 } from '../types'
 import * as db from '../lib/db'
 import { newId } from '../lib/id'
-import { currentPick } from '../lib/draft'
-import { isMyTurn, statusForTap } from '../lib/insights'
+import { currentPick, isMarked } from '../lib/draft'
+import { isMyTurn, slotForPick, statusForTap } from '../lib/insights'
 import { cellForMoment, swapNextPicks } from '../lib/trades'
 import type { ParsedSheet } from '../lib/parser/types'
 
@@ -118,6 +118,11 @@ interface SessionState {
     position: Position
     team: string
   }) => string | null
+  /**
+   * Put a player in a board cell, or clear it with null. For fixing a pick logged
+   * wrongly earlier without unwinding everything since — the clock stays put.
+   */
+  setPickAt: (cell: number, playerId: string | null) => void
   undo: () => void
   /**
    * Swap two managers' next `count` selections, as agreed out loud at the table.
@@ -282,14 +287,79 @@ export const useSessionStore = create<SessionState>((set, get) => {
       commit((session) => {
         const entry = session.undoStack[session.undoStack.length - 1]
         if (!entry) return null
+        const restore = new Map(
+          [
+            { playerId: entry.playerId, prevStatus: entry.prevStatus, prevDraftedAtPick: entry.prevDraftedAtPick },
+            ...(entry.also ?? []),
+          ].map((c) => [c.playerId, c]),
+        )
         return {
           ...session,
-          players: session.players.map((p) =>
-            p.id === entry.playerId
-              ? { ...p, status: entry.prevStatus, draftedAtPick: entry.prevDraftedAtPick }
-              : p,
-          ),
+          players: session.players.map((p) => {
+            const back = restore.get(p.id)
+            return back
+              ? { ...p, status: back.prevStatus, draftedAtPick: back.prevDraftedAtPick }
+              : p
+          }),
+          pickOffset: entry.prevPickOffset ?? session.pickOffset,
           undoStack: session.undoStack.slice(0, -1),
+        }
+      })
+    },
+
+    setPickAt(cell, playerId) {
+      commit((session) => {
+        const occupant =
+          session.players.find((p) => p.draftedAtPick === cell && p.status !== 'available') ?? null
+        const incoming = playerId ? (session.players.find((p) => p.id === playerId) ?? null) : null
+        if (playerId && !incoming) return null
+        if (!occupant && !incoming) return null
+        if (occupant && incoming && occupant.id === incoming.id) return null
+
+        // Keep the attribution the cell already had. A pick deliberately logged
+        // against the other side stays that way when only the name was wrong.
+        const slot = slotForPick(cell, session.leagueSize)
+        const status: PlayerStatus = occupant
+          ? occupant.status
+          : slot === session.draftSlot
+            ? 'mine'
+            : 'drafted'
+
+        const changes: NonNullable<UndoEntry['also']> = []
+        const players = session.players.map((p) => {
+          if (occupant && p.id === occupant.id) {
+            changes.push({ playerId: p.id, prevStatus: p.status, prevDraftedAtPick: p.draftedAtPick })
+            return { ...p, status: 'available' as PlayerStatus, draftedAtPick: null }
+          }
+          if (incoming && p.id === incoming.id) {
+            // Taking someone already on the board vacates the cell they were in.
+            changes.push({ playerId: p.id, prevStatus: p.status, prevDraftedAtPick: p.draftedAtPick })
+            return { ...p, status, draftedAtPick: cell }
+          }
+          return p
+        })
+
+        // The clock counts marked players, so emptying or filling a cell behind
+        // the clock would drag it backwards or forwards. Hold it where it is.
+        const before = session.players.filter(isMarked).length
+        const after = players.filter(isMarked).length
+        const pickOffset = session.pickOffset + (before - after)
+
+        const [first, ...rest] = changes
+        const entry: UndoEntry = {
+          playerId: first.playerId,
+          prevStatus: first.prevStatus,
+          prevDraftedAtPick: first.prevDraftedAtPick,
+          nextStatus: incoming && first.playerId === incoming.id ? status : 'available',
+          at: Date.now(),
+          also: rest,
+          prevPickOffset: session.pickOffset,
+        }
+        return {
+          ...session,
+          players,
+          pickOffset,
+          undoStack: [...session.undoStack, entry].slice(-UNDO_LIMIT),
         }
       })
     },

@@ -7,7 +7,7 @@ import { currentPick as computeCurrentPick, draftRounds } from '../lib/draft'
 import { overallToRoundPick } from '../lib/adp'
 import { buildDraftGrid, roundForPick, slotForPick, type GridCell } from '../lib/insights'
 import { usePlayerImages, useSquadFacts } from '../lib/usePlayerImages'
-import { cellForMoment } from '../lib/trades'
+import { cellForMoment, momentForCell, slotAtMoment } from '../lib/trades'
 import { loadSettings, saveSettings } from '../lib/db'
 import type { HeadshotLookup } from '../lib/headshots'
 import DraftCard from './DraftCard'
@@ -161,7 +161,10 @@ function Display({
     if (!player) return
 
     const slot = slotForPick(fresh, session.leagueSize)
-    const nextSlot = slotForPick(fresh + 1, session.leagueSize)
+    // Who is up next is a question about the order, not the board: after a trade
+    // the following selection may belong to a completely different column.
+    const nextMoment = momentForCell(fresh, session.trades) + 1
+    const nextSlot = slotAtMoment(nextMoment, session)
     setQueued({
       player,
       managerName: session.managers[slot - 1] ?? `Team ${slot}`,
@@ -170,7 +173,7 @@ function Display({
       overallPick: fresh,
       session,
       nextManagerName:
-        fresh + 1 <= rounds * session.leagueSize
+        nextMoment <= rounds * session.leagueSize
           ? (session.managers[nextSlot - 1] ?? `Team ${nextSlot}`)
           : null,
     })
