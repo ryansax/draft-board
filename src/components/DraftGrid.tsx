@@ -3,22 +3,24 @@ import { Pencil } from 'lucide-react'
 import type { Session } from '../types'
 import { buildDraftGrid, managerRosters, roundForPick, type GridCell } from '../lib/insights'
 import { usePlayerImages } from '../lib/usePlayerImages'
+import { momentForCell } from '../lib/trades'
 import { useSessionStore } from '../store/session'
 import type { HeadshotLookup } from '../lib/headshots'
 import DraftCard from './DraftCard'
 
 interface Props {
   session: Session
-  currentPick: number
+  /** The cell about to be filled. After a trade this is not the moment count. */
+  clockCell: number
   onRenameManager: (slot: number, name: string) => void
 }
 
 /** The whole draft, round by round, colour-coded by position. */
-export default function DraftGrid({ session, currentPick, onRenameManager }: Props) {
+export default function DraftGrid({ session, clockCell, onRenameManager }: Props) {
   const grid = buildDraftGrid(session)
   const rosters = managerRosters(session)
   const [editing, setEditing] = useState<number | null>(null)
-  const currentRound = roundForPick(currentPick, session.leagueSize)
+  const currentRound = roundForPick(clockCell, session.leagueSize)
   const faces = usePlayerImages(useSessionStore((s) => s.settings.playerImages))
   const currentRowRef = useRef<HTMLTableRowElement>(null)
 
@@ -96,7 +98,13 @@ export default function DraftGrid({ session, currentPick, onRenameManager }: Pro
                   {row[0].round}
                 </td>
                 {row.map((cell) => (
-                  <Cell key={cell.pick} cell={cell} currentPick={currentPick} faces={faces} />
+                  <Cell
+                    key={cell.pick}
+                    cell={cell}
+                    clockCell={clockCell}
+                    filledAt={momentForCell(cell.pick, session.trades)}
+                    faces={faces}
+                  />
                 ))}
               </tr>
             )
@@ -109,14 +117,19 @@ export default function DraftGrid({ session, currentPick, onRenameManager }: Pro
 
 function Cell({
   cell,
-  currentPick,
+  clockCell,
+  filledAt,
   faces,
 }: {
   cell: GridCell
-  currentPick: number
+  /** The cell about to be filled. After a trade this is not the moment count. */
+  clockCell: number
+  /** Which selection fills this cell. Differs from the cell only after a trade. */
+  filledAt: number
   faces: HeadshotLookup | null
 }) {
-  const onTheClock = cell.pick === currentPick
+  const onTheClock = cell.pick === clockCell
+  const traded = filledAt !== cell.pick
   const player = cell.player
   /**
    * This pick belongs to my slot but the player was logged as someone else's — most
@@ -140,7 +153,7 @@ function Cell({
             onTheClock ? 'font-bold text-amber-900 dark:text-amber-100' : 'text-stone-400'
           }`}
         >
-          {onTheClock ? 'ON THE CLOCK' : cell.pick}
+          {onTheClock ? 'ON THE CLOCK' : traded ? `${cell.pick} → ${filledAt}` : cell.pick}
         </span>
       </td>
     )

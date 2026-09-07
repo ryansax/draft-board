@@ -1,3 +1,5 @@
+import type { PickTrade } from './lib/trades'
+
 export const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'DST', 'K'] as const
 export type Position = (typeof POSITIONS)[number]
 
@@ -111,6 +113,8 @@ export interface Session {
   undoStack: UndoEntry[]
   /** Manual nudge applied on top of the derived pick counter (section 7.2). */
   pickOffset: number
+  /** Picks swapped mid-draft. Empty for a draft where nobody traded. */
+  trades: PickTrade[]
   /** Tier-run toasts already dismissed, keyed `${position}:${tier}`. */
   dismissedTierAlerts: string[]
 }

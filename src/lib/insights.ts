@@ -8,6 +8,7 @@ import {
 } from '../types'
 import { pickForRound } from './adp'
 import { bestAtPosition, draftRounds, isMarked, rosterSlotList, tierKey, tierStates } from './draft'
+import { slotAtMoment } from './trades'
 
 // ---------------------------------------------------------------------------
 // Snake geometry: overall pick <-> (round, slot)
@@ -144,8 +145,10 @@ export function pressureBeforeMyPick(
   const rosters = managerRosters(session)
   const counts = new Map<Position, number>()
 
-  for (let pick = currentPick; pick < myNextPick; pick++) {
-    const slot = slotForPick(pick, session.leagueSize)
+  // Walk moments, not cells: after a trade the manager choosing at a moment is
+  // whoever now owns the cell it fills.
+  for (let moment = currentPick; moment < myNextPick; moment++) {
+    const slot = slotAtMoment(moment, session)
     if (slot === session.draftSlot) continue
     const needs = new Set(unmetNeeds(rosters.get(slot) ?? [], session.rosterConfig))
     for (const position of needs) counts.set(position, (counts.get(position) ?? 0) + 1)

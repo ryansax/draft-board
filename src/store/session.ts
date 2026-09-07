@@ -16,6 +16,7 @@ import * as db from '../lib/db'
 import { newId } from '../lib/id'
 import { currentPick } from '../lib/draft'
 import { isMyTurn, statusForTap } from '../lib/insights'
+import { cellForMoment, swapNextPicks } from '../lib/trades'
 import type { ParsedSheet } from '../lib/parser/types'
 
 /** Section 6: "stack of at least 20 actions". */
@@ -38,7 +39,10 @@ function applyMark(
   const player = session.players.find((p) => p.id === playerId)
   if (!player) return null
 
-  const pick = currentPick(session.players, session.pickOffset)
+  const moment = currentPick(session.players, session.pickOffset)
+  // Without trades this is the same number; with them, the card belongs to the
+  // manager whose turn was moved here, in their own column.
+  const pick = cellForMoment(moment, session.trades)
   const status = resolve(pick)
   if (player.status === status) return null
 
@@ -77,6 +81,7 @@ function migrate(session: Session): Session {
     managers,
     undoStack: session.undoStack ?? [],
     pickOffset: session.pickOffset ?? 0,
+    trades: session.trades ?? [],
     dismissedTierAlerts: session.dismissedTierAlerts ?? [],
   }
 }
@@ -114,6 +119,13 @@ interface SessionState {
     team: string
   }) => string | null
   undo: () => void
+  /**
+   * Swap two managers' next `count` selections, as agreed out loud at the table.
+   * Only upcoming picks move, so the board behind the clock is never rewritten.
+   */
+  tradePicks: (slotA: number, slotB: number, count: number) => void
+  /** Take back the most recent trade. */
+  undoLastTrade: () => void
   nudgePickOffset: (delta: number) => void
   setManagerName: (slot: number, name: string) => void
   dismissTierAlert: (key: string) => void
@@ -171,6 +183,7 @@ export const useSessionStore = create<SessionState>((set, get) => {
         players,
         undoStack: [],
         pickOffset: 0,
+        trades: [],
         dismissedTierAlerts: [],
       }
       await db.saveSession(session)
@@ -213,6 +226,7 @@ export const useSessionStore = create<SessionState>((set, get) => {
         updatedAt: Date.now(),
         undoStack: parsed.undoStack ?? [],
         pickOffset: parsed.pickOffset ?? 0,
+        trades: parsed.trades ?? [],
         dismissedTierAlerts: parsed.dismissedTierAlerts ?? [],
       })
       await db.saveSession(session)
@@ -277,6 +291,32 @@ export const useSessionStore = create<SessionState>((set, get) => {
           ),
           undoStack: session.undoStack.slice(0, -1),
         }
+      })
+    },
+
+    tradePicks(slotA, slotB, count) {
+      commit((session) => {
+        const moment = currentPick(session.players, session.pickOffset)
+        const swaps = swapNextPicks(session, slotA, slotB, count, moment)
+        if (swaps.length === 0) return null
+        return { ...session, trades: [...session.trades, ...swaps] }
+      })
+    },
+
+    undoLastTrade() {
+      commit((session) => {
+        if (session.trades.length === 0) return null
+        // A trade of two picks records two swaps; both come back together.
+        const moment = currentPick(session.players, session.pickOffset)
+        const kept = session.trades.slice(0, -1)
+        // Refuse to unwind a trade whose picks have already been used, which
+        // would move a card that is already on the board.
+        const undone = session.trades[session.trades.length - 1]
+        const used = session.players.some(
+          (p) => p.draftedAtPick === undone.a || p.draftedAtPick === undone.b,
+        )
+        if (used || moment < 1) return null
+        return { ...session, trades: kept }
       })
     },
 

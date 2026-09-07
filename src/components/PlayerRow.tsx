@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { Undo2 } from 'lucide-react'
+import { momentForCell, type PickTrade } from '../lib/trades'
 import type { Player, PlayerStatus } from '../types'
 import {
   AVAILABILITY_LABELS,
@@ -16,6 +17,8 @@ export const HIGH_UPSIDE = 8.5
 interface Props {
   player: Player
   leagueSize: number
+  /** Pick swaps in effect, so "gone @" reads as when he went. */
+  trades: PickTrade[]
   currentPick: number
   myNextPick: number | null
   menuOpen: boolean
@@ -29,6 +32,7 @@ interface Props {
 function PlayerRowInner({
   player,
   leagueSize,
+  trades,
   currentPick,
   myNextPick,
   menuOpen,
@@ -92,7 +96,9 @@ function PlayerRowInner({
               {marked && player.draftedAtPick !== null && (
                 <>
                   <span aria-hidden>·</span>
-                  <span className="tabular-nums">{mine ? 'mine' : 'gone'} @{player.draftedAtPick}</span>
+                  <span className="tabular-nums">
+                    {mine ? 'mine' : 'gone'} @{momentForCell(player.draftedAtPick, trades)}
+                  </span>
                 </>
               )}
             </span>

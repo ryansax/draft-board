@@ -7,6 +7,7 @@ import { currentPick as computeCurrentPick, draftRounds } from '../lib/draft'
 import { overallToRoundPick } from '../lib/adp'
 import { buildDraftGrid, roundForPick, slotForPick, type GridCell } from '../lib/insights'
 import { usePlayerImages, useSquadFacts } from '../lib/usePlayerImages'
+import { cellForMoment } from '../lib/trades'
 import { loadSettings, saveSettings } from '../lib/db'
 import type { HeadshotLookup } from '../lib/headshots'
 import DraftCard from './DraftCard'
@@ -101,10 +102,13 @@ function Display({
   onToggleFullscreen: () => void
 }) {
   const pick = computeCurrentPick(session.players, session.pickOffset)
+  // The cell on the clock; the same number until picks are traded.
+  const clockCell = cellForMoment(pick, session.trades)
   const rounds = draftRounds(session.rosterConfig)
   const grid = useMemo(() => buildDraftGrid(session), [session])
-  const round = Math.min(roundForPick(pick, session.leagueSize), rounds)
-  const onClockSlot = slotForPick(pick, session.leagueSize)
+  // Which cell the room is watching, and therefore which manager and which round.
+  const round = Math.min(roundForPick(clockCell, session.leagueSize), rounds)
+  const onClockSlot = slotForPick(clockCell, session.leagueSize)
   const onClockName = session.managers[onClockSlot - 1] ?? `Team ${onClockSlot}`
 
   const currentRow = useRef<HTMLDivElement>(null)

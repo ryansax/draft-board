@@ -20,7 +20,8 @@ function session(players: Player[]): Session {
   return {
     id: 's', name: 'test', createdAt: 0, updatedAt: 0, sheetTitle: '', sheetDate: null,
     leagueSize: 10, draftSlot: 3, managers: defaultManagers(10, 3),
-    rosterConfig: DEFAULT_ROSTER, players, undoStack: [], pickOffset: 0, dismissedTierAlerts: [],
+    rosterConfig: DEFAULT_ROSTER, players, undoStack: [], pickOffset: 0, trades: [],
+    dismissedTierAlerts: [],
   }
 }
 

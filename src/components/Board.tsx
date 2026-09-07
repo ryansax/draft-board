@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Flame, LayoutGrid, MonitorPlay, Settings, Undo2, UserPlus, Users, X } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight, Flame, LayoutGrid, MonitorPlay, Settings, Undo2, UserPlus, Users, X } from 'lucide-react'
 import { useSessionStore } from '../store/session'
 import {
   BADGES,
@@ -16,14 +16,15 @@ import {
 import {
   bestAvailable,
   currentPick as computeCurrentPick,
-  draftRounds,
   sortPlayers,
   tierKey,
   tierStates,
 } from '../lib/draft'
 import { isMyTurn } from '../lib/insights'
-import { myPicks, nextPickAtOrAfter } from '../lib/adp'
+import { nextPickAtOrAfter } from '../lib/adp'
+import { cellForMoment, momentsForSlot } from '../lib/trades'
 import { useMediaQuery } from '../lib/useMediaQuery'
+import TradeDialog from './TradeDialog'
 import PositionColumn from './PositionColumn'
 import PickStrip from './PickStrip'
 import BestAvailableStrip from './BestAvailableStrip'
@@ -54,6 +55,8 @@ export default function Board({
     nudgePickOffset,
     dismissTierAlert,
     setManagerName,
+    tradePicks,
+    undoLastTrade,
     addOffBoardPlayer,
     settings,
     setSettings,
@@ -151,16 +154,22 @@ export default function Board({
     return () => window.removeEventListener('keydown', handler)
   }, [undo])
 
+  const [trading, setTrading] = useState(false)
+
   const derived = useMemo(() => {
     if (!session) return null
+    // `pick` is the moment — how many selections deep the draft is. Without
+    // trades it is also the cell on the clock; with them the two diverge.
     const pick = computeCurrentPick(session.players, session.pickOffset)
-    const picks = myPicks(session.leagueSize, session.draftSlot, draftRounds(session.rosterConfig))
+    const cell = cellForMoment(pick, session.trades)
+    const picks = momentsForSlot(session, session.draftSlot)
     const next = nextPickAtOrAfter(picks, pick)
     return {
       pick,
+      cell,
       picks,
       next,
-      myTurn: isMyTurn(pick, session.leagueSize, session.draftSlot),
+      myTurn: isMyTurn(cell, session.leagueSize, session.draftSlot),
       upcoming: picks.filter((p) => p >= pick).slice(0, 6),
       tiers: tierStates(session.players),
       best: bestAvailable(session.players, 5, [...SKILL_POSITIONS]),
@@ -422,6 +431,7 @@ export default function Board({
                 tiers={derived.tiers}
                 leagueSize={session.leagueSize}
                 currentPick={derived.pick}
+                trades={session.trades}
                 myNextPick={derived.next}
                 openMenu={openMenu}
                 showTiers={settings.sortMode === 'rank'}
@@ -448,13 +458,27 @@ export default function Board({
                 >
                   <MonitorPlay size={16} /> Second screen
                 </Button>
+                <Button onClick={() => setTrading(true)} className="px-3">
+                  <ArrowLeftRight size={16} /> Trade picks
+                </Button>
                 <span className="text-xs text-stone-500 dark:text-stone-400">
-                  Opens a read-only board for the room. It follows your picks live.
+                  {session.trades.length > 0
+                    ? `${session.trades.length} pick ${session.trades.length === 1 ? 'swap' : 'swaps'} in effect.`
+                    : 'Opens a read-only board for the room. It follows your picks live.'}
                 </span>
               </div>
+              {trading && (
+                <TradeDialog
+                  session={session}
+                  moment={derived.pick}
+                  onTrade={tradePicks}
+                  onUndoTrade={undoLastTrade}
+                  onClose={() => setTrading(false)}
+                />
+              )}
               <DraftGrid
                 session={session}
-                currentPick={derived.pick}
+                clockCell={derived.cell}
                 onRenameManager={setManagerName}
               />
             </div>

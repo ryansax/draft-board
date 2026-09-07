@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import type { Player, PlayerStatus, Position } from '../types'
+import type { PickTrade } from '../lib/trades'
 import type { TierState } from '../lib/draft'
 import { tierKey } from '../lib/draft'
 import PlayerRow from './PlayerRow'
@@ -11,6 +12,7 @@ interface Props {
   players: Player[]
   tiers: Map<string, TierState>
   leagueSize: number
+  trades: PickTrade[]
   currentPick: number
   myNextPick: number | null
   openMenu: string | null
@@ -36,6 +38,7 @@ export default function PositionColumn({
   players,
   tiers,
   leagueSize,
+  trades,
   currentPick,
   myNextPick,
   openMenu,
@@ -75,6 +78,7 @@ export default function PositionColumn({
                   player={player}
                   leagueSize={leagueSize}
                   currentPick={currentPick}
+                  trades={trades}
                   myNextPick={myNextPick}
                   menuOpen={openMenu === player.id}
                   myTurn={myTurn}

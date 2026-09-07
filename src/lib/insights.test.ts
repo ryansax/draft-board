@@ -27,7 +27,7 @@ function session(players: Player[], o: Partial<Session> = {}): Session {
   return {
     id: 's', name: 'test', createdAt: 0, updatedAt: 0, sheetTitle: '', sheetDate: null,
     leagueSize, draftSlot, managers: defaultManagers(leagueSize, draftSlot),
-    rosterConfig: DEFAULT_ROSTER, players, undoStack: [], pickOffset: 0,
+    rosterConfig: DEFAULT_ROSTER, players, undoStack: [], pickOffset: 0, trades: [],
     dismissedTierAlerts: [], ...o,
   }
 }
