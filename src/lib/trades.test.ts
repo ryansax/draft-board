@@ -263,3 +263,52 @@ describe('numbering the agreements', () => {
     expect(cellsInGroup(2, trades)).toEqual([75, 80])
   })
 })
+
+describe('one trade, one number across all four cards', () => {
+  /*
+   * Slot 4 holds 44 and 57; slot 6 holds 46 and 55. They swap both, as the first
+   * agreement of the draft. All four picks must read trade 1 — that is what makes
+   * them findable on the board as one deal rather than four oddities.
+   */
+  const swaps = swapNextPicks(session(), 4, 6, 2, 44).map((swap) => ({ ...swap, group: 1 }))
+
+  it('pairs the picks the way the table agreed them', () => {
+    expect(swaps).toEqual([
+      { a: 44, b: 46, group: 1 },
+      { a: 57, b: 55, group: 1 },
+    ])
+  })
+
+  it('gives every one of the four cards the same number', () => {
+    for (const cell of [44, 46, 55, 57]) {
+      const marks = tradesForCell(cell, swaps)
+      expect(marks).toHaveLength(1)
+      expect(marks[0].group).toBe(1)
+    }
+  })
+
+  it('tells each card what it went for', () => {
+    expect(tradesForCell(44, swaps)[0].partner).toBe(46)
+    expect(tradesForCell(46, swaps)[0].partner).toBe(44)
+    expect(tradesForCell(57, swaps)[0].partner).toBe(55)
+    expect(tradesForCell(55, swaps)[0].partner).toBe(57)
+  })
+
+  it('leaves the picks either side of them unmarked', () => {
+    for (const cell of [43, 45, 47, 54, 56, 58]) {
+      expect(tradesForCell(cell, swaps)).toEqual([])
+    }
+  })
+
+  it('numbers a second agreement 2, without touching the first', () => {
+    const second = swapNextPicks(session(swaps), 1, 8, 2, 44).map((s) => ({
+      ...s,
+      group: nextTradeGroup(swaps),
+    }))
+    const all = [...swaps, ...second]
+    expect(second.every((s) => s.group === 2)).toBe(true)
+    for (const cell of [44, 46, 55, 57]) {
+      expect(tradesForCell(cell, all)[0].group).toBe(1)
+    }
+  })
+})
